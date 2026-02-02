@@ -9,20 +9,33 @@
 #include <stdlib.h>
 #include <string.h>
 
-
-/* Attributes State Machine */
+/****************** Public Enum ******************/
+// Attributes State Machine
 enum
 {
     IDX_SVC,
-    IDX_CHAR_A,
-    IDX_CHAR_VAL_A,
-    IDX_CHAR_CFG_A,
+    IDX_CHAR_TRANSCRIPT,
+    IDX_CHAR_VAL_TRANSCRIPT,
+    IDX_CHAR_CFG_TRANSCRIPT,
 
-    IDX_CHAR_B,
-    IDX_CHAR_VAL_B,
-
-    IDX_CHAR_C,
-    IDX_CHAR_VAL_C,
-
-    HRS_IDX_NB,
+    FILE_TRF_NB,
 };
+
+/****************** Public Define ******************/
+#define ENABLE_LOGGING              1
+
+// BLE Macros
+#define PROFILE_NUM                 1
+#define PROFILE_APP_IDX             0
+#define ESP_APP_ID                  0x50
+#define SAMPLE_DEVICE_NAME          "WEARABLE_PHI"
+#define SVC_INST_ID                 0
+
+// The max length of characteristic value
+#define MAX_MTU_SIZE                500
+#define GATTS_CHAR_VAL_LEN_MAX      500
+#define PREPARE_BUF_MAX_SIZE        1024
+#define CHAR_DECLARATION_SIZE       (sizeof(uint8_t))
+
+#define ADV_CONFIG_FLAG             (1 << 0)
+#define SCAN_RSP_CONFIG_FLAG        (1 << 1)
