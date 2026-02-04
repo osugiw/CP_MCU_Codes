@@ -1,13 +1,21 @@
-/*
- * SPDX-FileCopyrightText: 2021 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Unlicense OR CC0-1.0
- */
+#pragma once
 
-
+#include <stdint.h>
 #include <stdio.h>
+#include <iostream>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "esp_system.h"
+#include "esp_log.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /****************** Public Enum ******************/
 // Attributes State Machine
@@ -39,3 +47,15 @@ enum
 
 #define ADV_CONFIG_FLAG             (1 << 0)
 #define SCAN_RSP_CONFIG_FLAG        (1 << 1)
+
+//  SD Pin assignments
+#define PIN_NUM_CS      GPIO_NUM_21 
+#define PIN_NUM_SCLK    GPIO_NUM_7
+#define PIN_NUM_MISO    GPIO_NUM_8
+#define PIN_NUM_MOSI    GPIO_NUM_9
+
+static const char *SD_TAG = "SD_CARD";
+
+#ifdef __cplusplus
+}
+#endif

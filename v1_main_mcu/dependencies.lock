@@ -1,0 +1,16 @@
+dependencies:
+  idf:
+    source:
+      type: idf
+    version: 5.5.2
+  sd_card:
+    dependencies: []
+    source:
+      path: D:\Projects\ELEC594_CapstoneProject\Code\EmbeddedDevice\v1_main_mcu\main\sd_card_lib
+      type: local
+    version: '*'
+direct_dependencies:
+- sd_card
+manifest_hash: 963f6ed09e506f4238e32bba70e938df9084b5c06129390013a75d8198966c4e
+target: esp32s3
+version: 2.0.0

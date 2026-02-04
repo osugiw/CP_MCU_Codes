@@ -1,23 +1,17 @@
-/*
- * SPDX-FileCopyrightText: 2021-2024 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Unlicense OR CC0-1.0
+/**
+ * This project is part of the Capstone Project
+ * --------------------------------------------------------------------------
+ * Author: Sugiarto Wibowo
+ * Date: February 2026
+ * --------------------------------------------------------------------------
+ * These codes perform read TXT file from SD Card and transmit the read data
+ * over BLE using GATT server with notify property.
+ * 
  */
 
-/****************************************************************************
-*
-* This demo showcases creating a GATT database using a predefined attribute table.
-* It acts as a GATT server and can send adv data, be connected by client.
-* Run the gatt_client demo, the client demo will automatically connect to the gatt_server_service_table demo.
-* Client demo will enable GATT server's notify after connection. The two devices will then exchange
-* data.
-*
-****************************************************************************/
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "esp_log.h"
+#include "v1_main_mcu.h"
+#include "sd_card.h"
+
 #include "nvs_flash.h"
 #include "esp_bt.h"
 #include "esp_gap_ble_api.h"
@@ -25,7 +19,7 @@
 #include "esp_bt_main.h"
 #include "esp_bt_device.h"
 #include "esp_gatt_common_api.h"
-#include "v1_main_mcu.h"
+
 
 /****************** Private Structs ******************/
 typedef struct {
@@ -47,10 +41,12 @@ struct gatts_profile_inst {
     uint16_t descr_handle;
     esp_bt_uuid_t descr_uuid;
 };
-/****************** Private Define ******************/
-#define GATTS_TABLE_TAG "ESP32S3_XIAO"
 
-/****************** Advertising Parameters ******************/
+/****************** Private Define ******************/
+#define GATTS_TABLE_TAG "BLE_XIAO_S3"
+
+/****************** Private Variables ******************/
+// service uuid
 static uint8_t service_uuid[16] = {
     // LSB <--> MSB (first uuid, 16bit, [12],[13] is the value)
     0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00,
@@ -140,11 +136,18 @@ static const esp_gatts_attr_db_t gatt_db[FILE_TRF_NB] =
     [IDX_CHAR_CFG_TRANSCRIPT]  = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, sizeof(uint16_t), sizeof(f_execute_file_transfer), (uint8_t *)&f_execute_file_transfer}},
 };
 
-
-/****************** Write Event Parameters ******************/
+// Write Event Parameters
 static prepare_type_env_t prepare_write_env;
 static uint8_t adv_config_done       = 0;
 uint16_t file_transfer_handle_table[FILE_TRF_NB];
+
+// SD Card class instance
+sd_card_class sd_card;
+static esp_err_t sd_mounted = ESP_OK;
+size_t offset = 0;
+int bytes_read = 0;
+static const uint16_t mtu_payload = MAX_MTU_SIZE - 3; // Calculate safe payload size
+char file_chunk[mtu_payload];;
 
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
@@ -254,7 +257,8 @@ void exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble_gatts_c
 
 static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
 {
-    switch (event) {
+    switch (event) 
+    {
         case ESP_GATTS_REG_EVT:{
             esp_err_t set_dev_name_ret = esp_ble_gap_set_device_name(SAMPLE_DEVICE_NAME);
             if (set_dev_name_ret){
@@ -277,12 +281,12 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             if (create_attr_ret){
                 ESP_LOGE(GATTS_TABLE_TAG, "create attr table failed, error code = %x", create_attr_ret);
             }
-        }
        	    break;
+        }
         case ESP_GATTS_READ_EVT:
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_READ_EVT");
        	    break;
-        case ESP_GATTS_WRITE_EVT:
+        case ESP_GATTS_WRITE_EVT:{
             if (!param->write.is_prep){
                 // the data length of gattc write  must be less than GATTS_CHAR_VAL_LEN_MAX.
                 ESP_LOGI(GATTS_TABLE_TAG, "GATT_WRITE_EVT, handle = %d, value len = %d, value :", param->write.handle, param->write.len);
@@ -318,11 +322,13 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                 prepare_write_event_env(gatts_if, &prepare_write_env, param);
             }
       	    break;
-        case ESP_GATTS_EXEC_WRITE_EVT:
+        }
+        case ESP_GATTS_EXEC_WRITE_EVT:{
             // the length of gattc prepare write data must be less than GATTS_CHAR_VAL_LEN_MAX.
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_EXEC_WRITE_EVT");
             exec_write_event_env(&prepare_write_env, param);
             break;
+        }
         case ESP_GATTS_MTU_EVT:
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_MTU_EVT, MTU %d", param->mtu.mtu);
             break;
@@ -332,7 +338,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         case ESP_GATTS_START_EVT:
             ESP_LOGI(GATTS_TABLE_TAG, "SERVICE_START_EVT, status %d, service_handle %d", param->start.status, param->start.service_handle);
             break;
-        case ESP_GATTS_CONNECT_EVT:
+        case ESP_GATTS_CONNECT_EVT:{
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_CONNECT_EVT, conn_id = %d", param->connect.conn_id);
             ESP_LOG_BUFFER_HEX(GATTS_TABLE_TAG, param->connect.remote_bda, 6);
             esp_ble_conn_update_params_t conn_params = {0};
@@ -345,10 +351,12 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             //start sent the update connection parameters to the peer device.
             esp_ble_gap_update_conn_params(&conn_params);
             break;
-        case ESP_GATTS_DISCONNECT_EVT:
+        }
+        case ESP_GATTS_DISCONNECT_EVT:{
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_DISCONNECT_EVT, reason = 0x%x", param->disconnect.reason);
             esp_ble_gap_start_advertising(&adv_params);
             break;
+        }
         case ESP_GATTS_CREAT_ATTR_TAB_EVT:{
             if (param->add_attr_tab.status != ESP_GATT_OK){
                 ESP_LOGE(GATTS_TABLE_TAG, "create attribute table failed, error code=0x%x", param->add_attr_tab.status);
@@ -377,7 +385,6 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
     }
 }
 
-
 static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
 {
     /* If event is register event, store the gatts_if for each profile */
@@ -405,7 +412,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
     } while (0);
 }
 
-void app_main(void)
+extern "C" void app_main(void)
 {
     esp_err_t ret;
 
@@ -417,8 +424,19 @@ void app_main(void)
     }
     ESP_ERROR_CHECK( ret );
 
-    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+    // Initialize SD Card
+    sd_mounted = sd_card.initialize();
+    if (sd_mounted == ESP_OK){
+        ESP_LOGI(SD_TAG, "SD Card mounted successfully");
+        sd_card.write_file("/sdcard/test.txt", (char*)"Hello, this is a test file.");
+        bytes_read = sd_card.read_file("/sdcard/test.txt", file_chunk, offset, mtu_payload);
+        ESP_LOGI(SD_TAG, "File Content: %s", file_chunk);
+    }
+    else{
+        ESP_LOGE(SD_TAG, "Failed to mount SD Card");
+    }
 
+    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ret = esp_bt_controller_init(&bt_cfg);
     if (ret) {
@@ -466,4 +484,12 @@ void app_main(void)
     if (local_mtu_ret){
         ESP_LOGE(GATTS_TABLE_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
+
+    while (true)
+    {
+        /* code */
+        // printf("Main task running...\n");
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+    
 }
