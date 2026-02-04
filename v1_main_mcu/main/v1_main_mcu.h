@@ -21,12 +21,32 @@ extern "C" {
 // Attributes State Machine
 enum
 {
-    IDX_SVC,
+    // Characteristic Indexes for File Transfer Service
+    IDX_SVC_TRANSCRIPT,
     IDX_CHAR_TRANSCRIPT,
     IDX_CHAR_VAL_TRANSCRIPT,
     IDX_CHAR_CFG_TRANSCRIPT,
+    
+    // Service ID
+    FILE_TRF_INST_ID = 0,
 
-    FILE_TRF_NB,
+    // Total Number of Attributes in GATTS Database
+    FILE_TRF_NB = 4,
+};
+
+enum {
+    // Characteristic Indexes for Device Settings Service
+    IDX_SVC_SETTINGS,
+    IDX_CHAR_DEVICE_NAME,
+    IDX_CHAR_VAL_DEVICE_NAME,
+    IDX_CHAR_DEVICE_SETTINGS,
+    IDX_CHAR_VAL_DEVICE_SETTINGS,
+    
+    // Service ID
+    DEV_SETT_INST_ID = 1,
+
+    // Total Number of Attributes in GATTS Database
+    DEV_SETTINGS_NB = 5,
 };
 
 /****************** Public Define ******************/
@@ -36,8 +56,11 @@ enum
 #define PROFILE_NUM                 1
 #define PROFILE_APP_IDX             0
 #define ESP_APP_ID                  0x50
-#define SAMPLE_DEVICE_NAME          "WEARABLE_PHI"
-#define SVC_INST_ID                 0
+
+// Device settings
+#define MAX_DEV_SETT_DATA           1
+#define MAX_DEV_SETT_NAME           15
+#define SAMPLE_DEVICE_NAME         "WEARABLE_PHI"
 
 // The max length of characteristic value
 #define MAX_MTU_SIZE                500
@@ -50,9 +73,9 @@ enum
 
 //  SD Pin assignments
 #define PIN_NUM_CS      GPIO_NUM_21 
-#define PIN_NUM_SCLK    GPIO_NUM_7
-#define PIN_NUM_MISO    GPIO_NUM_8
-#define PIN_NUM_MOSI    GPIO_NUM_9
+#define PIN_NUM_SCLK    GPIO_NUM_7      // D8/A8
+#define PIN_NUM_MISO    GPIO_NUM_8      // D9/A9
+#define PIN_NUM_MOSI    GPIO_NUM_9      // D10/A10
 
 static const char *SD_TAG = "SD_CARD";
 

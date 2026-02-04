@@ -16,5 +16,6 @@
     "--compile-commands-dir=d:\\Projects\\ELEC594_CapstoneProject\\Code\\EmbeddedDevice\\v1_main_mcu\\build"
   ],
   "idf.portWin": "COM9",
-  "idf.flashType": "UART"
+  "idf.flashType": "UART",
+  "idf.currentSetup": "C:\\Users\\sugia\\esp\\v5.5.2\\esp-idf"
 }

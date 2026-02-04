@@ -22,6 +22,16 @@
 
 
 /****************** Private Structs ******************/
+typedef enum {
+    BLE_STATE_OFF,
+    BLE_STATE_ON,
+} ble_state_t;
+
+typedef struct {
+    char*       device_name;
+    uint8_t     recording_time;   // In minutes
+} device_settings_t;
+
 typedef struct {
     uint8_t                 *prepare_buf;
     int                     prepare_len;
@@ -46,11 +56,29 @@ struct gatts_profile_inst {
 #define GATTS_TABLE_TAG "BLE_XIAO_S3"
 
 /****************** Private Variables ******************/
-// service uuid
-static uint8_t service_uuid[16] = {
-    // LSB <--> MSB (first uuid, 16bit, [12],[13] is the value)
-    0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00,
+// Write Event Parameters
+static prepare_type_env_t prepare_write_env;
+static uint8_t adv_config_done       = 0;
+
+// BLE State
+ble_state_t ble_state = BLE_STATE_OFF;
+
+// Device Settings
+device_settings_t device_settings = {
+    .device_name = (char *)SAMPLE_DEVICE_NAME,
+    .recording_time = 5,   // Default 5 minutes
 };
+
+// SD Card class instance
+sd_card_class sd_card;
+static esp_err_t sd_mounted = ESP_OK;
+size_t offset = 0;
+int bytes_read = 0;
+static const uint16_t mtu_payload = MAX_MTU_SIZE - 3; // Calculate safe payload size
+char file_chunk[mtu_payload];;
+
+// Service uuid (LSB <--> MSB)
+static uint8_t service_uuid[16] = {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00,};
 
 // The length of adv data must be less than 31 bytes
 static esp_ble_adv_data_t adv_data = {
@@ -112,42 +140,47 @@ static const uint16_t character_declaration_uuid    = ESP_GATT_UUID_CHAR_DECLARE
 static const uint16_t character_client_config_uuid  = ESP_GATT_UUID_CHAR_CLIENT_CONFIG;
 static const uint16_t GATTS_SERVICE_UUID_TRANSCRIPT = 0x0052;
 static const uint16_t GATTS_CHAR_UUID_FILE          = 0x5201;
+static const uint16_t GATTS_SERVICE_UUID_SETTINGS   = 0x0053;
+static const uint16_t GATTS_CHAR_UUID_DEVICE_NAME   = 0x5301;
+static const uint16_t GATTS_CHAR_UUID_DEVICE_SETTINGS  = 0x5302;
 
 // Characteristic Properties
-// static const uint8_t char_prop_read                =  ESP_GATT_CHAR_PROP_BIT_READ;
-// static const uint8_t char_prop_write               = ESP_GATT_CHAR_PROP_BIT_WRITE;
+static const uint8_t char_prop_read                 =  ESP_GATT_CHAR_PROP_BIT_READ;
+static const uint8_t char_prop_write                = ESP_GATT_CHAR_PROP_BIT_WRITE;
+static const uint8_t char_prop_read_write           = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE;
 static const uint8_t char_prop_notify               =  ESP_GATT_CHAR_PROP_BIT_NOTIFY;
 static const uint8_t f_execute_file_transfer        = 0x00;
 static const uint8_t char_value[4]                  = {0x11, 0x22, 0x33, 0x44};
 
 // Full Database Description - Used to add attributes into the database
-static const esp_gatts_attr_db_t gatt_db[FILE_TRF_NB] =
+static const esp_gatts_attr_db_t file_transfer_db[FILE_TRF_NB] =
 {
     // Service Declaration
-    [IDX_SVC]        =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&primary_service_uuid, ESP_GATT_PERM_READ, sizeof(uint16_t), sizeof(GATTS_SERVICE_UUID_TRANSCRIPT), (uint8_t *)&GATTS_SERVICE_UUID_TRANSCRIPT}},
-
-    /* Characteristic Declaration */
+    [IDX_SVC_TRANSCRIPT]        =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&primary_service_uuid, ESP_GATT_PERM_READ, sizeof(uint16_t), sizeof(GATTS_SERVICE_UUID_TRANSCRIPT), (uint8_t *)&GATTS_SERVICE_UUID_TRANSCRIPT}},
+    // Characteristic Declaration
     [IDX_CHAR_TRANSCRIPT]     =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_notify}},
-
-    /* Characteristic Value */
+    // Characteristic Value
     [IDX_CHAR_VAL_TRANSCRIPT] =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_FILE, ESP_GATT_PERM_READ, GATTS_CHAR_VAL_LEN_MAX, sizeof(char_value), (uint8_t *)char_value}},
-
-    /* Client Characteristic Configuration Descriptor */
+    // Client Characteristic Configuration Descriptor
     [IDX_CHAR_CFG_TRANSCRIPT]  = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, sizeof(uint16_t), sizeof(f_execute_file_transfer), (uint8_t *)&f_execute_file_transfer}},
 };
 
-// Write Event Parameters
-static prepare_type_env_t prepare_write_env;
-static uint8_t adv_config_done       = 0;
-uint16_t file_transfer_handle_table[FILE_TRF_NB];
+static const esp_gatts_attr_db_t device_setting_db[DEV_SETTINGS_NB] =
+{
+    // Service Declaration
+    [IDX_SVC_SETTINGS]        =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&primary_service_uuid, ESP_GATT_PERM_READ, sizeof(uint16_t), sizeof(GATTS_SERVICE_UUID_SETTINGS), (uint8_t *)&GATTS_SERVICE_UUID_SETTINGS}},
+    // Characteristic Declaration
+    [IDX_CHAR_DEVICE_NAME]     =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_write}},
+    // Characteristic Value
+    [IDX_CHAR_VAL_DEVICE_NAME] =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_DEVICE_NAME, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, GATTS_CHAR_VAL_LEN_MAX, MAX_DEV_SETT_NAME, (uint8_t *)device_settings.device_name}},
+    // Characteristic Declaration
+    [IDX_CHAR_DEVICE_SETTINGS]     =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_write}},
+        // Characteristic Value
+    [IDX_CHAR_VAL_DEVICE_SETTINGS] =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_DEVICE_SETTINGS, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, GATTS_CHAR_VAL_LEN_MAX, MAX_DEV_SETT_DATA, (uint8_t *)&device_settings.recording_time}},
+};
 
-// SD Card class instance
-sd_card_class sd_card;
-static esp_err_t sd_mounted = ESP_OK;
-size_t offset = 0;
-int bytes_read = 0;
-static const uint16_t mtu_payload = MAX_MTU_SIZE - 3; // Calculate safe payload size
-char file_chunk[mtu_payload];;
+uint16_t file_transfer_handle_table[FILE_TRF_NB];
+uint16_t device_settings_handle_table[DEV_SETTINGS_NB];
 
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
@@ -277,7 +310,12 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             }
             adv_config_done |= SCAN_RSP_CONFIG_FLAG;
             
-            esp_err_t create_attr_ret = esp_ble_gatts_create_attr_tab(gatt_db, gatts_if, FILE_TRF_NB, SVC_INST_ID);
+            esp_err_t create_attr_ret = esp_ble_gatts_create_attr_tab(file_transfer_db, gatts_if, FILE_TRF_NB, FILE_TRF_INST_ID);
+            if (create_attr_ret){
+                ESP_LOGE(GATTS_TABLE_TAG, "create attr table failed, error code = %x", create_attr_ret);
+            }
+
+            create_attr_ret = esp_ble_gatts_create_attr_tab(device_setting_db, gatts_if, DEV_SETTINGS_NB, DEV_SETT_INST_ID);
             if (create_attr_ret){
                 ESP_LOGE(GATTS_TABLE_TAG, "create attr table failed, error code = %x", create_attr_ret);
             }
@@ -310,6 +348,17 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                         ESP_LOGE(GATTS_TABLE_TAG, "Unknown descr value");
                         ESP_LOG_BUFFER_HEX(GATTS_TABLE_TAG, param->write.value, param->write.len);
                     }
+                }
+                else if (device_settings_handle_table[IDX_CHAR_VAL_DEVICE_NAME] == param->write.handle){
+                    memcpy(device_settings.device_name, "", MAX_DEV_SETT_NAME);
+                    for(uint8_t i = 0; i < param->write.len; i++) {
+                        device_settings.device_name[i] = param->write.value[i];
+                    }
+                    ESP_LOGI(GATTS_TABLE_TAG, "New Device Name Received: %s", device_settings.device_name);
+                }
+                else if (device_settings_handle_table[IDX_CHAR_VAL_DEVICE_SETTINGS] == param->write.handle){
+                    device_settings.recording_time = param->write.value[0];
+                    ESP_LOGI(GATTS_TABLE_TAG, "New Device Settings Received: %d", device_settings.recording_time);
                 }
 
                 /* send response when param->write.need_rsp is true*/
@@ -361,14 +410,20 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             if (param->add_attr_tab.status != ESP_GATT_OK){
                 ESP_LOGE(GATTS_TABLE_TAG, "create attribute table failed, error code=0x%x", param->add_attr_tab.status);
             }
-            else if (param->add_attr_tab.num_handle != FILE_TRF_NB){
-                ESP_LOGE(GATTS_TABLE_TAG, "create attribute table abnormally, num_handle (%d) \
-                        doesn't equal to FILE_TRF_NB(%d)", param->add_attr_tab.num_handle, FILE_TRF_NB);
-            }
-            else {
+            else if (param->add_attr_tab.num_handle == FILE_TRF_NB){
                 ESP_LOGI(GATTS_TABLE_TAG, "create attribute table successfully, the number handle = %d",param->add_attr_tab.num_handle);
                 memcpy(file_transfer_handle_table, param->add_attr_tab.handles, sizeof(file_transfer_handle_table));
-                esp_ble_gatts_start_service(file_transfer_handle_table[IDX_SVC]);
+                esp_ble_gatts_start_service(file_transfer_handle_table[IDX_SVC_TRANSCRIPT]);
+            }
+            else if (param->add_attr_tab.num_handle == DEV_SETTINGS_NB){
+                ESP_LOGI(GATTS_TABLE_TAG, "create attribute table successfully, the number handle = %d",param->add_attr_tab.num_handle);
+                memcpy(device_settings_handle_table, param->add_attr_tab.handles, sizeof(device_settings_handle_table));
+                esp_ble_gatts_start_service(device_settings_handle_table[IDX_SVC_SETTINGS]);
+            }
+            else {
+                
+                ESP_LOGE(GATTS_TABLE_TAG, "create attribute table abnormally, num_handle (%d) \
+                        doesn't equal to FILE_TRF_NB(%d)", param->add_attr_tab.num_handle, FILE_TRF_NB);
             }
             break;
         }
@@ -412,6 +467,69 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
     } while (0);
 }
 
+void ble_init(ble_state_t enable)
+{
+    esp_err_t ret;
+    if (enable == BLE_STATE_ON)
+    {
+        ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+        esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+        ret = esp_bt_controller_init(&bt_cfg);
+        if (ret) {
+            ESP_LOGE(GATTS_TABLE_TAG, "%s enable controller failed: %s", __func__, esp_err_to_name(ret));
+            return;
+        }
+
+        ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
+        if (ret) {
+            ESP_LOGE(GATTS_TABLE_TAG, "%s enable controller failed: %s", __func__, esp_err_to_name(ret));
+            return;
+        }
+
+        ret = esp_bluedroid_init();
+        if (ret) {
+            ESP_LOGE(GATTS_TABLE_TAG, "%s init bluetooth failed: %s", __func__, esp_err_to_name(ret));
+            return;
+        }
+
+        ret = esp_bluedroid_enable();
+        if (ret) {
+            ESP_LOGE(GATTS_TABLE_TAG, "%s enable bluetooth failed: %s", __func__, esp_err_to_name(ret));
+            return;
+        }
+
+        ret = esp_ble_gatts_register_callback(gatts_event_handler);
+        if (ret){
+            ESP_LOGE(GATTS_TABLE_TAG, "gatts register error, error code = %x", ret);
+            return;
+        }
+
+        ret = esp_ble_gap_register_callback(gap_event_handler);
+        if (ret){
+            ESP_LOGE(GATTS_TABLE_TAG, "gap register error, error code = %x", ret);
+            return;
+        }
+
+        ret = esp_ble_gatts_app_register(ESP_APP_ID);
+        if (ret){
+            ESP_LOGE(GATTS_TABLE_TAG, "gatts app register error, error code = %x", ret);
+            return;
+        }
+
+        esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(MAX_MTU_SIZE);
+        if (local_mtu_ret){
+            ESP_LOGE(GATTS_TABLE_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
+        }
+    }
+    else if (enable == BLE_STATE_OFF)
+    {
+        esp_bluedroid_disable();
+        esp_bluedroid_deinit();
+        esp_bt_controller_disable();
+        esp_bt_controller_deinit();
+    }
+}
+
 extern "C" void app_main(void)
 {
     esp_err_t ret;
@@ -428,7 +546,9 @@ extern "C" void app_main(void)
     sd_mounted = sd_card.initialize();
     if (sd_mounted == ESP_OK){
         ESP_LOGI(SD_TAG, "SD Card mounted successfully");
-        sd_card.write_file("/sdcard/test.txt", (char*)"Hello, this is a test file.");
+        sd_card.write_file("/sdcard/test.txt", (char*)"Hello, this is a test file.\nThis file is used to test SD card read and BLE transfer functionality.\nEnjoy testing!\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\n");
+        
+        // Read a chunk of file from SD Card
         bytes_read = sd_card.read_file("/sdcard/test.txt", file_chunk, offset, mtu_payload);
         ESP_LOGI(SD_TAG, "File Content: %s", file_chunk);
     }
@@ -436,54 +556,12 @@ extern "C" void app_main(void)
         ESP_LOGE(SD_TAG, "Failed to mount SD Card");
     }
 
-    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
-    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-    ret = esp_bt_controller_init(&bt_cfg);
-    if (ret) {
-        ESP_LOGE(GATTS_TABLE_TAG, "%s enable controller failed: %s", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
-    if (ret) {
-        ESP_LOGE(GATTS_TABLE_TAG, "%s enable controller failed: %s", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_bluedroid_init();
-    if (ret) {
-        ESP_LOGE(GATTS_TABLE_TAG, "%s init bluetooth failed: %s", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_bluedroid_enable();
-    if (ret) {
-        ESP_LOGE(GATTS_TABLE_TAG, "%s enable bluetooth failed: %s", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_ble_gatts_register_callback(gatts_event_handler);
-    if (ret){
-        ESP_LOGE(GATTS_TABLE_TAG, "gatts register error, error code = %x", ret);
-        return;
-    }
-
-    ret = esp_ble_gap_register_callback(gap_event_handler);
-    if (ret){
-        ESP_LOGE(GATTS_TABLE_TAG, "gap register error, error code = %x", ret);
-        return;
-    }
-
-    ret = esp_ble_gatts_app_register(ESP_APP_ID);
-    if (ret){
-        ESP_LOGE(GATTS_TABLE_TAG, "gatts app register error, error code = %x", ret);
-        return;
-    }
-
-    esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(MAX_MTU_SIZE);
-    if (local_mtu_ret){
-        ESP_LOGE(GATTS_TABLE_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
-    }
+    // Turn on BLE state
+    ble_init(BLE_STATE_ON);
+    // vTaskDelay(60000 / portTICK_PERIOD_MS);
+    // ble_init(BLE_STATE_OFF);
+    // vTaskDelay(60000 / portTICK_PERIOD_MS);
+    // ble_init(BLE_STATE_ON);
 
     while (true)
     {
