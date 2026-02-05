@@ -50,13 +50,22 @@ class sd_card_class{
         */
         esp_err_t uninitialize(void);
 
+        
+        /**
+        *   @brief  Check file size
+        *   @param  filePath    File path to check size
+        *   @return 
+        *           File size in bytes
+        */
+        uint32_t check_file_size(const char *filePath);
+
         /**
         *   @brief  Deletes old files if the remaining space size is low
         *   @param  rec_time    Most Audio files recording time
         *   @return 
         *           Remaining free space in bytes
         */
-        esp_err_t check_free_space(uint32_t rec_time);
+        uint32_t check_free_space(uint32_t rec_time);
         
         /**
         *   @brief  Write a file to the SD Card
@@ -76,7 +85,7 @@ class sd_card_class{
         *   @return 
         *           Number of bytes read, or -1 on error
         */
-        int read_file(const char *filePath, char* dt, size_t offset, size_t chunk_size);
+        int read_file(const char *filePath, uint8_t* dt, size_t offset, size_t chunk_size);
 
         /**
         *   @brief  Remove a file from the SD Card
@@ -101,6 +110,15 @@ class sd_card_class{
         *           Array of Filenames
         */
         void print_directory(std::vector<std::string> &listFile);
+
+        
+        /**
+        *   @brief  Generate dummy data for testing
+        *   @param  Path    Path to generate the test file
+        *   @return 
+        *           None
+        */
+        void generate_5kb_test_file(const char* path);
 };
 
 

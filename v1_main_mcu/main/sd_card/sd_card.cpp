@@ -27,9 +27,8 @@ esp_err_t sd_card_class::write_file(const char *filePath, char *data)
     return ESP_OK;
 }
 
-int sd_card_class::read_file(const char *filePath, char* dt, size_t offset, size_t chunk_size)
+int sd_card_class::read_file(const char *filePath, uint8_t* dt, size_t offset, size_t chunk_size)
 {
-    ESP_LOGI(SD_TAG, "Reading file %s", filePath);
     FILE *f = fopen(filePath, "rb");
     if (f == NULL) {
         ESP_LOGE(SD_TAG, "Failed to open file for reading");
@@ -167,7 +166,17 @@ esp_err_t sd_card_class::uninitialize(void)
     return err;
 }
 
-esp_err_t sd_card_class::check_free_space(uint32_t rec_time)
+uint32_t sd_card_class::check_file_size(const char *filePath)
+{
+    struct stat info;
+    if (stat(filePath, &info) < 0) {
+        ESP_LOGE(SD_TAG, "Failed to stat file: %s", strerror(errno));
+        return 0;
+    }
+    return (uint32_t) info.st_size;
+}
+
+uint32_t sd_card_class::check_free_space(uint32_t rec_time)
 {
     esp_err_t err = ESP_OK;
     std::vector<std::string> listFile = list_directory("/sdcard");
@@ -206,5 +215,32 @@ esp_err_t sd_card_class::check_free_space(uint32_t rec_time)
             err = remove_file(filePath.c_str());  
         }
     }
-    return err;
+    return     free_space = SDCard_Size - totalFileSize;
+;
+}
+
+
+void sd_card_class::generate_5kb_test_file(const char* path) {
+    FILE* f = fopen(path, "wb");
+    if (f == NULL) {
+        ESP_LOGE("SD_TEST", "Failed to create file");
+        return;
+    }
+
+    // 10 blocks of 512 bytes = 5120 bytes (5 KB)
+    for (int block = 1; block <= 10; block++) {
+        // Write a header (approx 12 bytes)
+        int header_len = fprintf(f, "--- START BLOCK %02d ---\n", block);
+        
+        // Fill the rest of the 512-byte sector with repeating characters
+        // We subtract the header length and the footer length
+        for (int i = 0; i < (512 - header_len - 15); i++) {
+            fputc('.', f); 
+        }
+        
+        fprintf(f, "\n--- END BLOCK %02d ---\n", block);
+    }
+
+    fclose(f);
+    ESP_LOGI("SD_TEST", "5KB Test File Created: %s", path);
 }

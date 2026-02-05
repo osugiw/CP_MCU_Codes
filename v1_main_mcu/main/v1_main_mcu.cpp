@@ -54,6 +54,7 @@ struct gatts_profile_inst {
 
 /****************** Private Define ******************/
 #define GATTS_TABLE_TAG "BLE_XIAO_S3"
+#define SD_TEST_PATH    "/sdcard/test.txt"
 
 /****************** Private Variables ******************/
 // Write Event Parameters
@@ -72,10 +73,8 @@ device_settings_t device_settings = {
 // SD Card class instance
 sd_card_class sd_card;
 static esp_err_t sd_mounted = ESP_OK;
-size_t offset = 0;
-int bytes_read = 0;
 static const uint16_t mtu_payload = MAX_MTU_SIZE - 3; // Calculate safe payload size
-char file_chunk[mtu_payload];;
+uint8_t file_chunk[mtu_payload] = {};
 
 // Service uuid (LSB <--> MSB)
 static uint8_t service_uuid[16] = {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00,};
@@ -160,7 +159,7 @@ static const esp_gatts_attr_db_t file_transfer_db[FILE_TRF_NB] =
     // Characteristic Declaration
     [IDX_CHAR_TRANSCRIPT]     =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_notify}},
     // Characteristic Value
-    [IDX_CHAR_VAL_TRANSCRIPT] =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_FILE, ESP_GATT_PERM_READ, GATTS_CHAR_VAL_LEN_MAX, sizeof(char_value), (uint8_t *)char_value}},
+    [IDX_CHAR_VAL_TRANSCRIPT] =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_FILE, ESP_GATT_PERM_READ, GATTS_CHAR_VAL_LEN_MAX, sizeof(file_chunk), (uint8_t *)file_chunk}},
     // Client Characteristic Configuration Descriptor
     [IDX_CHAR_CFG_TRANSCRIPT]  = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, sizeof(uint16_t), sizeof(f_execute_file_transfer), (uint8_t *)&f_execute_file_transfer}},
 };
@@ -334,12 +333,35 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                 if (file_transfer_handle_table[IDX_CHAR_CFG_TRANSCRIPT] == param->write.handle && param->write.len == 2){
                     if (param->write.value[0] == 0x01){
                         ESP_LOGI(GATTS_TABLE_TAG, "Notify enabled");
-                        uint8_t notify_data[MAX_MTU_SIZE-3]; //make sure this array is less than MTU size
-                        for (int i = 0; i < sizeof(notify_data); ++i)
-                        {
-                            notify_data[i] = i % 0xff;
+
+                        // Read a chunk of file from SD Card
+                        if (sd_mounted == ESP_OK){
+                            size_t offset = 0;
+                            int bytes_read = 0;
+                            int total_bytes_read = 0;
+                            int check_file_size = sd_card.check_file_size(SD_TEST_PATH);
+                            
+                            ESP_LOGI(SD_TAG, "Reading file %s (%d bytes)", SD_TEST_PATH, check_file_size);
+                            while(total_bytes_read < check_file_size )
+                            {
+                                bytes_read = sd_card.read_file(SD_TEST_PATH, file_chunk, offset, mtu_payload);
+                                ESP_LOGI(SD_TAG, "%s", file_chunk);
+                                esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, file_transfer_handle_table[IDX_CHAR_VAL_TRANSCRIPT], sizeof(file_chunk), file_chunk, false);
+                                
+                                // Increment starting point to read next chunk
+                                offset += bytes_read;
+                                // Accumulate total bytes read
+                                total_bytes_read += bytes_read;
+                                memset(file_chunk, 0, sizeof(file_chunk)); // Clear the buffer
+                            }
                         }
-                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, file_transfer_handle_table[IDX_CHAR_VAL_TRANSCRIPT], sizeof(notify_data), notify_data, false);
+                        
+                        // uint8_t notify_data[MAX_MTU_SIZE-3]; //make sure this array is less than MTU size
+                        // for (int i = 0; i < sizeof(notify_data); ++i)
+                        // {
+                        //     notify_data[i] = i % 0xff;
+                        // }
+                        // esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, file_transfer_handle_table[IDX_CHAR_VAL_TRANSCRIPT], sizeof(notify_data), notify_data, false);
                     }
                     else if (param->write.value[0] == 0x00){
                         ESP_LOGI(GATTS_TABLE_TAG, "Notify disabled");
@@ -545,16 +567,17 @@ extern "C" void app_main(void)
     // Initialize SD Card
     sd_mounted = sd_card.initialize();
     if (sd_mounted == ESP_OK){
-        ESP_LOGI(SD_TAG, "SD Card mounted successfully");
-        sd_card.write_file("/sdcard/test.txt", (char*)"Hello, this is a test file.\nThis file is used to test SD card read and BLE transfer functionality.\nEnjoy testing!\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\n");
+        sd_card.generate_5kb_test_file(SD_TEST_PATH);
+        // ESP_LOGI(SD_TAG, "SD Card mounted successfully");
+        // sd_card.write_file(SD_TEST_PATH, (char*)"Hello, this is a test file.\nThis file is used to test SD card read and BLE transfer functionality.\nEnjoy testing!\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\n");
         
-        // Read a chunk of file from SD Card
-        bytes_read = sd_card.read_file("/sdcard/test.txt", file_chunk, offset, mtu_payload);
-        ESP_LOGI(SD_TAG, "File Content: %s", file_chunk);
+        // // Read a chunk of file from SD Card
+        // sd_card.read_file(SD_TEST_PATH, file_chunk, offset, mtu_payload);
+        // ESP_LOGI(SD_TAG, "File Content: %s", file_chunk);
     }
-    else{
-        ESP_LOGE(SD_TAG, "Failed to mount SD Card");
-    }
+    // else{
+    //     ESP_LOGE(SD_TAG, "Failed to mount SD Card");
+    // }
 
     // Turn on BLE state
     ble_init(BLE_STATE_ON);
