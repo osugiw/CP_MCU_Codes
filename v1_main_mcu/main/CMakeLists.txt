@@ -3,9 +3,11 @@ idf_component_register(
     INCLUDE_DIRS 
                 "."
                 "./sd_card"
+                "./ble_conn"
     SRC_DIRS     
                 "."
                 "./sd_card"
+                "./ble_conn"
 )
 
 target_compile_options(

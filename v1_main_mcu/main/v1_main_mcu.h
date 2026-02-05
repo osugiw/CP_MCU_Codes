@@ -13,63 +13,30 @@
 #include "esp_system.h"
 #include "esp_log.h"
 
+// Libraries
+#include "sd_card.h"
+#include "ble_conn.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/****************** Public Enum ******************/
-// Attributes State Machine
-enum
-{
-    // Characteristic Indexes for File Transfer Service
-    IDX_SVC_TRANSCRIPT,
-    IDX_CHAR_TRANSCRIPT,
-    IDX_CHAR_VAL_TRANSCRIPT,
-    IDX_CHAR_CFG_TRANSCRIPT,
-    
-    // Service ID
-    FILE_TRF_INST_ID = 0,
-
-    // Total Number of Attributes in GATTS Database
-    FILE_TRF_NB = 4,
-};
-
-enum {
-    // Characteristic Indexes for Device Settings Service
-    IDX_SVC_SETTINGS,
-    IDX_CHAR_DEVICE_NAME,
-    IDX_CHAR_VAL_DEVICE_NAME,
-    IDX_CHAR_DEVICE_SETTINGS,
-    IDX_CHAR_VAL_DEVICE_SETTINGS,
-    
-    // Service ID
-    DEV_SETT_INST_ID = 1,
-
-    // Total Number of Attributes in GATTS Database
-    DEV_SETTINGS_NB = 5,
-};
+/****************** Public Struct ******************/
+typedef struct {
+    char*       device_name;
+    uint8_t     recording_time;   // In minutes
+} device_settings_t;
 
 /****************** Public Define ******************/
 #define ENABLE_LOGGING              1
-
-// BLE Macros
-#define PROFILE_NUM                 1
-#define PROFILE_APP_IDX             0
-#define ESP_APP_ID                  0x50
 
 // Device settings
 #define MAX_DEV_SETT_DATA           1
 #define MAX_DEV_SETT_NAME           15
 #define SAMPLE_DEVICE_NAME         "WEARABLE_PHI"
 
-// The max length of characteristic value
-#define MAX_MTU_SIZE                500
-#define GATTS_CHAR_VAL_LEN_MAX      500
-#define PREPARE_BUF_MAX_SIZE        1024
-#define CHAR_DECLARATION_SIZE       (sizeof(uint8_t))
-
-#define ADV_CONFIG_FLAG             (1 << 0)
-#define SCAN_RSP_CONFIG_FLAG        (1 << 1)
+// SD Test path
+#define SD_TEST_PATH    "/sdcard/test.txt"
 
 //  SD Pin assignments
 #define PIN_NUM_CS      GPIO_NUM_21 
@@ -77,7 +44,9 @@ enum {
 #define PIN_NUM_MISO    GPIO_NUM_8      // D9/A9
 #define PIN_NUM_MOSI    GPIO_NUM_9      // D10/A10
 
+// Debug TAGs
 static const char *SD_TAG = "SD_CARD";
+static const char *GATTS_TABLE_TAG = "BLE_XIAO_S3";
 
 #ifdef __cplusplus
 }

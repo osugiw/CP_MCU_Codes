@@ -4,11 +4,12 @@
 #include <sys/unistd.h>
 #include <sys/stat.h>
 
-
+/* Private variables*/
+sd_card_class sd_card;
+esp_err_t sd_mounted = ESP_OK;
 
 /***********************************************************/
-/********************** Recorder Class **********************/
-
+/********************** SD Card Class **********************/
 sd_card_class::sd_card_class(){};
 sd_card_class::~sd_card_class(){};
 

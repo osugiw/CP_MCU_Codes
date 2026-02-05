@@ -121,6 +121,9 @@ class sd_card_class{
         void generate_5kb_test_file(const char* path);
 };
 
+/* Global SD Card instance */
+extern sd_card_class sd_card;
+extern esp_err_t sd_mounted;
 
 #ifdef __cplusplus
 }
