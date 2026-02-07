@@ -4,10 +4,12 @@ idf_component_register(
                 "."
                 "./sd_card"
                 "./ble_conn"
+                "./wifi"
     SRC_DIRS     
                 "."
                 "./sd_card"
                 "./ble_conn"
+                "./wifi"
 )
 
 target_compile_options(

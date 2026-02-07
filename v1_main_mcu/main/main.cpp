@@ -9,11 +9,14 @@
  * 
  */
 
-#include "v1_main_mcu.h"
+#include "main.h"
+#include "ble_conn.h"
+#include "wifi.h"
 #include "nvs_flash.h"
 
 // BLE Instance
 ble_conn_class ble_conn;
+WIFI_Class wifi;
 
 extern "C" void app_main(void)
 {
@@ -29,19 +32,12 @@ extern "C" void app_main(void)
 
     // Initialize SD Card
     sd_mounted = sd_card.initialize();
-    if (sd_mounted == ESP_OK){
+    if (sd_mounted == ESP_OK)
         sd_card.generate_5kb_test_file(SD_TEST_PATH);
-        // ESP_LOGI(SD_TAG, "SD Card mounted successfully");
-        // sd_card.write_file(SD_TEST_PATH, (char*)"Hello, this is a test file.\nThis file is used to test SD card read and BLE transfer functionality.\nEnjoy testing!\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\n");
-        
-        // // Read a chunk of file from SD Card
-        // sd_card.read_file(SD_TEST_PATH, file_chunk, offset, mtu_payload);
-        // ESP_LOGI(SD_TAG, "File Content: %s", file_chunk);
-    }
-    // else{
-    //     ESP_LOGE(SD_TAG, "Failed to mount SD Card");
-    // }
-
+    else
+        ESP_LOGE(SD_TAG, "Failed to mount SD Card");
+    
+#ifdef ENABLE_BLE_TESTING
     // Turn on BLE state
     ble_state = ble_conn.ble_init();
     if(ble_state == BLE_STATE_ON){
@@ -50,6 +46,13 @@ extern "C" void app_main(void)
     else{
         ESP_LOGE(GATTS_TABLE_TAG, "Failed to initialize BLE");
     }
+    vTaskDelay(100 / portTICK_PERIOD_MS); // Delay to ensure BLE is initialized before WiFi
+#endif
+
+#ifdef ENABLE_WIFI_TESTING
+    wifi.init();
+    wifi.connect();
+#endif
 
     while (true)
     {

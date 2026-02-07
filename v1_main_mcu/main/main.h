@@ -15,7 +15,6 @@
 
 // Libraries
 #include "sd_card.h"
-#include "ble_conn.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,10 +29,17 @@ typedef struct {
 /****************** Public Define ******************/
 #define ENABLE_LOGGING              1
 
+// Testing Purposes
+#define ENABLE_WIFI_TESTING             
+// #define ENABLE_BLE_TESTING              
+
 // Device settings
 #define MAX_DEV_SETT_DATA           1
 #define MAX_DEV_SETT_NAME           15
 #define SAMPLE_DEVICE_NAME         "WEARABLE_PHI"
+
+#define WIFI_SSID                  "PHI_LB"
+#define WIFI_PASSWORD              "09876543"
 
 // SD Test path
 #define SD_TEST_PATH    "/sdcard/test.txt"

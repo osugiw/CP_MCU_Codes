@@ -1,6 +1,6 @@
 #pragma once
 
-#include "v1_main_mcu.h"
+#include "main.h"
 #include "esp_bt.h"
 #include "esp_gap_ble_api.h"
 #include "esp_gatts_api.h"

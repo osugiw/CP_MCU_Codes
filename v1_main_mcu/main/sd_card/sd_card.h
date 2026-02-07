@@ -1,6 +1,6 @@
 #pragma once
 
-#include "v1_main_mcu.h"
+#include "main.h"
 #include "esp_vfs_fat.h"
 #include "esp_flash.h"
 #include "sdmmc_cmd.h"
