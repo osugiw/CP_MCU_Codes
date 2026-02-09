@@ -12,6 +12,7 @@
 extern "C" {
 #endif
 
+#ifdef ENABLE_BLE_TESTING
 /****************** Public Enum ******************/
 // Attributes State Machine
 enum
@@ -107,6 +108,8 @@ class ble_conn_class {
 
 /* Global BLE state variable */
 extern ble_state_t ble_state;
+
+#endif // ENABLE_BLE_TESTING
 
 #ifdef __cplusplus
 }

@@ -38,11 +38,13 @@ typedef struct {
 #define MAX_DEV_SETT_NAME           15
 #define SAMPLE_DEVICE_NAME         "WEARABLE_PHI"
 
+// WiFi Parameters
 #define WIFI_SSID                  "PHI_LB"
 #define WIFI_PASSWORD              "09876543"
 
-// SD Test path
-#define SD_TEST_PATH    "/sdcard/test.txt"
+// SD Card Paremeters
+#define MAX_SD_READ_SIZE            512
+#define SD_TEST_PATH                "/sdcard/test.txt"
 
 //  SD Pin assignments
 #define PIN_NUM_CS      GPIO_NUM_21 
@@ -50,9 +52,13 @@ typedef struct {
 #define PIN_NUM_MISO    GPIO_NUM_8      // D9/A9
 #define PIN_NUM_MOSI    GPIO_NUM_9      // D10/A10
 
+// HTTP Client
+// #define HTTP_ENDPOINT       "http://httpbin.org"
+
 // Debug TAGs
 static const char *SD_TAG = "SD_CARD";
 static const char *GATTS_TABLE_TAG = "BLE_XIAO_S3";
+static const char *WIFI_TAG = "WIFI_CONN";
 
 #ifdef __cplusplus
 }

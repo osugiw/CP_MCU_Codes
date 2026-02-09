@@ -12,11 +12,26 @@
 #include "main.h"
 #include "ble_conn.h"
 #include "wifi.h"
+#include "http_handle.h"
 #include "nvs_flash.h"
 
 // BLE Instance
+#ifdef ENABLE_BLE_TESTING
 ble_conn_class ble_conn;
+#endif
+
+#ifdef ENABLE_WIFI_TESTING
 WIFI_Class wifi;
+HTTP_Class http_client;
+#endif
+
+static void http_test_task(void *pvParameters)
+{
+    std::string _url = "http://" + std::string(gateway_ip) + ":5000/";
+    http_client.init(_url.c_str());
+    // http_client.send_post_request(HTTP_UPLOAD_FILE, SD_TEST_PATH);
+    vTaskDelete(NULL);
+}
 
 extern "C" void app_main(void)
 {
@@ -52,6 +67,11 @@ extern "C" void app_main(void)
 #ifdef ENABLE_WIFI_TESTING
     wifi.init();
     wifi.connect();
+
+    if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
+    {
+        xTaskCreate(&http_test_task, "http_test_task", 8192, NULL, 2, NULL);
+    }
 #endif
 
     while (true)

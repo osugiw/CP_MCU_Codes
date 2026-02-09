@@ -85,6 +85,7 @@ class WIFI_Class{
 
 // Public WiFi state variable
 extern wifi_state_t wifi_state;
+extern char gateway_ip[16];
 
 #ifdef __cplusplus
 }

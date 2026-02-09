@@ -1,5 +1,7 @@
 #include "ble_conn.h"
 
+#ifdef ENABLE_BLE_TESTING
+
 /****************** Private Structs ******************/
 struct gatts_profile_inst {
     esp_gatts_cb_t gatts_cb;
@@ -112,7 +114,7 @@ static const uint8_t char_value[4]                  = {0x11, 0x22, 0x33, 0x44};
 uint16_t file_transfer_handle_table[FILE_TRF_NB];
 uint16_t device_settings_handle_table[DEV_SETTINGS_NB];
 static const uint16_t mtu_payload = MAX_MTU_SIZE - 3; // Calculate safe payload size
-uint8_t file_chunk[mtu_payload] = {};
+uint8_t file_chunk[mtu_payload];
 
 // Full Database Description - Used to add attributes into the database
 static const esp_gatts_attr_db_t file_transfer_db[FILE_TRF_NB] =
@@ -542,3 +544,5 @@ ble_state_t ble_conn_class::ble_deinit()
         ble_state = BLE_STATE_ON;
     return ble_state;
 }
+
+#endif // ENABLE_BLE_TESTING
