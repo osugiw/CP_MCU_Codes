@@ -141,7 +141,8 @@ esp_err_t sd_card_class::initialize(void)
         if (ret == ESP_FAIL) {
             ESP_LOGE(SD_TAG, "Failed to mount filesystem. "
                      "If you want the card to be formatted, set the CONFIG_EXAMPLE_FORMAT_IF_MOUNT_FAILED menuconfig option.");
-        } else {
+        } 
+        else {
             ESP_LOGE(SD_TAG, "Failed to initialize the card (%s). "
                      "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
         }

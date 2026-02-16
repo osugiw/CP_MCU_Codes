@@ -25,6 +25,7 @@ WIFI_Class wifi;
 HTTP_Class http_client;
 #endif
 
+#ifdef ENABLE_WIFI_TESTING
 static void http_test_task(void *pvParameters)
 {
     std::string _url = "http://" + std::string(gateway_ip) + ":5000/";
@@ -32,6 +33,7 @@ static void http_test_task(void *pvParameters)
     // http_client.send_post_request(HTTP_UPLOAD_FILE, SD_TEST_PATH);
     vTaskDelete(NULL);
 }
+#endif
 
 extern "C" void app_main(void)
 {

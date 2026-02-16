@@ -30,7 +30,7 @@ typedef struct {
 #define ENABLE_LOGGING              1
 
 // Testing Purposes
-#define ENABLE_WIFI_TESTING             
+// #define ENABLE_WIFI_TESTING             
 // #define ENABLE_BLE_TESTING              
 
 // Device settings
@@ -47,7 +47,7 @@ typedef struct {
 #define SD_TEST_PATH                "/sdcard/test.txt"
 
 //  SD Pin assignments
-#define PIN_NUM_CS      GPIO_NUM_21 
+#define PIN_NUM_CS      GPIO_NUM_3      // D2/A2 
 #define PIN_NUM_SCLK    GPIO_NUM_7      // D8/A8
 #define PIN_NUM_MISO    GPIO_NUM_8      // D9/A9
 #define PIN_NUM_MOSI    GPIO_NUM_9      // D10/A10
