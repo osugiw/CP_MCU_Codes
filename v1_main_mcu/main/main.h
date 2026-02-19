@@ -30,7 +30,7 @@ typedef struct {
 #define ENABLE_LOGGING              1
 
 // Testing Purposes
-// #define ENABLE_WIFI_TESTING             
+#define ENABLE_WIFI_TESTING             
 // #define ENABLE_BLE_TESTING              
 
 // Device settings
@@ -47,18 +47,29 @@ typedef struct {
 #define SD_TEST_PATH                "/sdcard/test.txt"
 
 //  SD Pin assignments
-#define PIN_NUM_CS      GPIO_NUM_3      // D2/A2 
-#define PIN_NUM_SCLK    GPIO_NUM_7      // D8/A8
-#define PIN_NUM_MISO    GPIO_NUM_8      // D9/A9
-#define PIN_NUM_MOSI    GPIO_NUM_9      // D10/A10
+#define PIN_NUM_CS              GPIO_NUM_21      // D2/A2 
+#define PIN_NUM_SCLK            GPIO_NUM_7      // D8/A8
+#define PIN_NUM_MISO            GPIO_NUM_8      // D9/A9
+#define PIN_NUM_MOSI            GPIO_NUM_9      // D10/A10
+
+// PDM Mic Parameters
+#define GPIO_I2S_DATA_IO        GPIO_NUM_41     // I2S data in io number
+#define GPIO_I2S_CLK_IO         GPIO_NUM_42     // I2S bit clock io number
+
+/*  Recording Config  */
+#define RECORD_DURATION         10          // In seconds  
+#define MIN_SPACE_LEFT          100          // In MB
+#define NUM_FILES_REMOVE        5
+#define FILE_EXTENSION          ".adts"
 
 // HTTP Client
-// #define HTTP_ENDPOINT       "http://httpbin.org"
+#define HTTP_ENDPOINT       "http://httpbin.org"
 
 // Debug TAGs
 static const char *SD_TAG = "SD_CARD";
 static const char *GATTS_TABLE_TAG = "BLE_XIAO_S3";
 static const char *WIFI_TAG = "WIFI_CONN";
+static const char *RECORD_TAG = "Recording";
 
 #ifdef __cplusplus
 }

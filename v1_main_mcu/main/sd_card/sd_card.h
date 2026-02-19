@@ -4,6 +4,10 @@
 #include "esp_vfs_fat.h"
 #include "esp_flash.h"
 #include "sdmmc_cmd.h"
+#include <dirent.h>
+#include <fcntl.h>
+#include <sys/unistd.h>
+#include <sys/stat.h>
 
 #ifdef __cplusplus
 extern "C" {

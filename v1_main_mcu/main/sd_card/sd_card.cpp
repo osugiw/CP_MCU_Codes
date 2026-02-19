@@ -1,8 +1,4 @@
 #include "sd_card.h"
-#include <dirent.h>
-#include <fcntl.h>
-#include <sys/unistd.h>
-#include <sys/stat.h>
 
 /* Private variables*/
 sd_card_class sd_card;

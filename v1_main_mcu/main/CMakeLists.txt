@@ -1,17 +1,27 @@
 idf_component_register(
-    REQUIRES fatfs spi_flash bt nvs_flash esp_http_client
+    REQUIRES 
+                fatfs 
+                spi_flash 
+                bt 
+                nvs_flash 
+                esp_http_client
+                esp_driver_i2s
     INCLUDE_DIRS 
                 "."
                 "./sd_card"
                 "./ble_conn"
                 "./wifi"
                 "./http_handle"
+                "./mic_pdm"
+                "./NTP"
     SRC_DIRS     
                 "."
                 "./sd_card"
                 "./ble_conn"
                 "./wifi"
                 "./http_handle"
+                "./mic_pdm"
+                "./NTP"
 )
 
 target_compile_options(

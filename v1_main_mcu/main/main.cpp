@@ -14,6 +14,9 @@
 #include "wifi.h"
 #include "http_handle.h"
 #include "nvs_flash.h"
+#include "mic_pdm.h"
+#include "NTP.h"
+#include "esp_random.h"
 
 // BLE Instance
 #ifdef ENABLE_BLE_TESTING
@@ -25,15 +28,85 @@ WIFI_Class wifi;
 HTTP_Class http_client;
 #endif
 
+// Mic i2s
+MIC_I2S mic;
+
+/*  FreeRTOS    */
+SemaphoreHandle_t sem_task;
+
 #ifdef ENABLE_WIFI_TESTING
+NTP ntp;
 static void http_test_task(void *pvParameters)
 {
-    std::string _url = "http://" + std::string(gateway_ip) + ":5000/";
-    http_client.init(_url.c_str());
-    // http_client.send_post_request(HTTP_UPLOAD_FILE, SD_TEST_PATH);
-    vTaskDelete(NULL);
+    for(;;)
+    {
+        if(xSemaphoreTake(sem_task, portMAX_DELAY) == pdPASS)
+        {   
+            std::string _url = "http://" + std::string(gateway_ip) + ":5000/";
+            // http_client.init(_url.c_str());
+            // http_client.send_post_request(HTTP_UPLOAD_FILE, SD_TEST_PATH);
+            xSemaphoreGive(sem_task);
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        }
+    }
 }
 #endif
+
+/*  Task Record and Save    */
+void record_and_save_task(void *args)
+{
+    std::string fileName;
+    std::string currentDateTime;
+    uint32_t randomName;
+
+    for(;;)
+    {   
+        if(xSemaphoreTake(sem_task, portMAX_DELAY) == pdPASS)
+        {   
+            // If SD is mounted properly
+            if(sd_mounted == ESP_OK)
+            {
+                fileName.clear();
+                currentDateTime = ntp.currentDateTime();
+                
+                if(currentDateTime.empty())
+                {
+                    randomName = esp_random();
+                    fileName.append("/sdcard/");
+                    fileName.append(std::to_string(randomName));
+                    fileName.append(FILE_EXTENSION);
+                    ntp.forceSync();    // Force to Sync the NTP
+                }
+                else 
+                {
+                    fileName.append("/sdcard/");
+                    fileName.append(currentDateTime);
+                    fileName.append(FILE_EXTENSION);
+                    currentDateTime.clear();   // Clear currentDateTime
+                }
+
+                // Free up some space if the local storage size is low
+                uint32_t free_space = sd_card.check_free_space(RECORD_DURATION);
+                if(free_space > MIN_SPACE_LEFT)
+                {
+                    ESP_LOGI(RECORD_TAG, "Recording is is in progress");
+                    esp_err_t err = mic.i2s_record_audio_aac(RECORD_DURATION, fileName.c_str()); 
+                //     if(err != ESP_OK)
+                //     {
+                //         esp_restart();
+                //     }
+                }
+            }
+            else
+            {
+                ESP_LOGE(RECORD_TAG, "Restart the ESP since SD was error");
+                esp_restart();
+            }
+            xSemaphoreGive(sem_task);
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
 
 extern "C" void app_main(void)
 {
@@ -54,6 +127,35 @@ extern "C" void app_main(void)
     else
         ESP_LOGE(SD_TAG, "Failed to mount SD Card");
     
+    // Initialize the MIC I2S
+    mic.init_pdm();
+
+#ifdef ENABLE_WIFI_TESTING
+    wifi.init();
+    wifi.connect();
+
+    if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
+    {
+        ntp.initialize();
+        ntp.getSyncStatus();
+    }
+#endif
+
+    // Create the semaphore
+    sem_task = xSemaphoreCreateBinary();
+    xSemaphoreGive(sem_task);
+
+    /*  Record and Save Task  */
+    xTaskCreatePinnedToCore(
+        record_and_save_task,                   // Task code
+        "Record Audio Task",                    // Task name
+        8 * 1024,                               // Stack size
+        NULL,                                   // Parameter to be passed
+        12,                                     // Task Priority
+        NULL,                                   // Task Handle
+        0                                       // Pin number
+    );
+
 #ifdef ENABLE_BLE_TESTING
     // Turn on BLE state
     ble_state = ble_conn.ble_init();
@@ -67,12 +169,17 @@ extern "C" void app_main(void)
 #endif
 
 #ifdef ENABLE_WIFI_TESTING
-    wifi.init();
-    wifi.connect();
-
     if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
     {
-        xTaskCreate(&http_test_task, "http_test_task", 8192, NULL, 2, NULL);
+         xTaskCreatePinnedToCore(
+            http_test_task,                         // Task code
+            "HTTP Test Task",                       // Task name
+            8 * 1024,                               // Stack size
+            NULL,                                   // Parameter to be passed
+            10,                                     // Task Priority
+            NULL,                                   // Task Handle
+            0                                       // Pin number
+        );
     }
 #endif
 

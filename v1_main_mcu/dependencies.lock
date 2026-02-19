@@ -1,16 +1,21 @@
 dependencies:
+  espressif/esp_audio_codec:
+    component_hash: af4663830bc73eca58febcc34a976d003465e78ed57458aa00a14b231e392ca1
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.4'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 2.4.1
   idf:
     source:
       type: idf
     version: 5.5.2
-  sd_card:
-    dependencies: []
-    source:
-      path: D:\Projects\ELEC594_CapstoneProject\Code\EmbeddedDevice\v1_main_mcu\main\sd_card_lib
-      type: local
-    version: '*'
 direct_dependencies:
-- sd_card
-manifest_hash: 963f6ed09e506f4238e32bba70e938df9084b5c06129390013a75d8198966c4e
+- espressif/esp_audio_codec
+- idf
+manifest_hash: c5b6b231d94a7c484d0c50a2e08693e293ea3fb16cef2d4f61f981c5828acb0a
 target: esp32s3
 version: 2.0.0
