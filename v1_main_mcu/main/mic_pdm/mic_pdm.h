@@ -15,15 +15,15 @@ extern "C" {
  */
 #define I2S_SAMPLE_RATE                     48000
 #define I2S_BIT_SAMPLE                      16
-#define I2S_NUM_CHANNEL                     1    
-#define I2S_CHANNEL_DMA_FRAME_NUM           2046
+#define I2S_CHANNEL_DMA_FRAME_NUM           2046    //2046 x 2 = 4092 (ESP32 Limitation) -- the number of samples in one DMA buffer, which affects the frequency of DMA interrupts and the size of data processed in each interrupt. Larger value means less frequent interrupts and more data processed in each interrupt, but also means higher latency and more RAM usage.>
 #define I2S_CHANNEL_DMA_DESC_NUM            6
-#define I2S_CHANNEL_DMA_BUFFERS_SIZE        ((I2S_CHANNEL_DMA_FRAME_NUM * I2S_NUM_CHANNEL * I2S_BIT_SAMPLE) / 8)    // Must be <= 4092 (ESP32 Limitation)
-#define I2S_RECV_BUFFER_SIZE                (I2S_CHANNEL_DMA_DESC_NUM * I2S_CHANNEL_DMA_BUFFERS_SIZE)
+#define I2S_CHANNEL_DMA_BUFFERS_SIZE        (((I2S_CHANNEL_DMA_FRAME_NUM + 2) * I2S_SLOT_MODE_MONO * I2S_BIT_SAMPLE) / 8)    // Must be <= 4092 (ESP32 Limitation)
 
-/*  AAC Codec Config  */
-#define CODEC_BITRATE                       128000  // bps
-#define AAC_CODEC_BUFFER_SIZE               ((I2S_CHANNEL_DMA_FRAME_NUM + 2) * 12)
+/*  AAC Codec & Buffer Config  */
+#define CODEC_BITRATE                       96000  // bps
+#define AUDIO_GAIN                          10.0f    // Gain factor for volume adjustment (e.g., 1.5 for 50% increase)   
+#define I2S_RECV_BUFFER_SIZE                (I2S_CHANNEL_DMA_DESC_NUM * I2S_CHANNEL_DMA_BUFFERS_SIZE)
+#define AAC_CODEC_BUFFER_SIZE               (I2S_CHANNEL_DMA_FRAME_NUM + 2)
 
 /**
  * @brief  Basic audio information
@@ -88,6 +88,15 @@ class MIC_I2S{
         *   @return I2S data
         */
         uint8_t raw_i2s(void);
+
+        /**
+         *  @brief  Adjust the volume of audio data
+         *  @param buffer The audio data buffer to be adjusted
+         *  @param samples The number of audio samples in the buffer
+         *  @param scale The volume scale factor (e.g., 0.5 for half volume) 
+         *  @return true if any sample was clipped during adjustment, false otherwise
+         */
+        bool adjust_volume(int16_t *buffer, size_t samples, float scale);
 
         /**
         *   @brief  Save Audio Recording in AAC Format

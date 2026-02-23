@@ -31,7 +31,8 @@ typedef struct {
 
 // Testing Purposes
 #define ENABLE_WIFI_TESTING             
-// #define ENABLE_BLE_TESTING              
+// #define ENABLE_BLE_TESTING         
+// #define GENERATE_DUMMY_5KB_FILE     
 
 // Device settings
 #define MAX_DEV_SETT_DATA           1
@@ -60,7 +61,7 @@ typedef struct {
 #define RECORD_DURATION         10          // In seconds  
 #define MIN_SPACE_LEFT          100          // In MB
 #define NUM_FILES_REMOVE        5
-#define FILE_EXTENSION          ".adts"
+#define FILE_EXTENSION          ".aac"
 
 // HTTP Client
 #define HTTP_ENDPOINT       "http://httpbin.org"

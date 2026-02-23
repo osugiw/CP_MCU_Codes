@@ -12,10 +12,10 @@
 
 i2s_chan_handle_t   rx_handle;                 /*  I2S rx channel handler */ 
 static const char* DEC_TAG = "AAC DECODER";
-static uint8_t audio_buffer[I2S_RECV_BUFFER_SIZE];
-static uint8_t fileWrite_buffer[I2S_RECV_BUFFER_SIZE];
 static aac_write_ctx_t aac_write_ctx;
 static aac_read_ctx_t  aac_read_ctx;
+uint8_t *audio_buffer = (uint8_t *)malloc(I2S_RECV_BUFFER_SIZE);
+uint8_t *fileWrite_buffer = (uint8_t *)malloc(AAC_CODEC_BUFFER_SIZE);
 
 MIC_I2S INMP441;
 
@@ -39,6 +39,7 @@ MIC_I2S::~MIC_I2S(){};
 void MIC_I2S::init_pdm(void)
 {
     esp_err_t err;
+
     /* Determine the I2S channel configuration and allocate both channels */
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER); // dma_desc_num = 6, dma_frame_num = 240
     chan_cfg.dma_desc_num = I2S_CHANNEL_DMA_DESC_NUM;
@@ -74,7 +75,7 @@ void MIC_I2S::init_pdm(void)
         ESP_LOGE(RECORD_TAG, "Failed to initialize PDM RX mode");
         return;
     }
-
+    
     /* Enable the RX channel */
     err = i2s_channel_enable(rx_handle);
     if(err != ESP_OK)
@@ -82,6 +83,8 @@ void MIC_I2S::init_pdm(void)
         ESP_LOGE(RECORD_TAG, "Failed to enable I2S channel");
         return;
     }
+
+    
     ESP_LOGI(RECORD_TAG, "I2S PDM Microphone Initialized");
 }
 
@@ -111,6 +114,24 @@ uint8_t MIC_I2S::raw_i2s(void)
   return mean;
 }
 
+bool MIC_I2S::adjust_volume(int16_t *buffer, size_t samples, float scale) {
+    bool clipped = false;
+    for (size_t i = 0; i < samples; i++) {
+        int32_t temp = (int32_t)(buffer[i] * scale);
+        
+        if (temp > 32767) {
+            temp = 32767;
+            clipped = true;
+        } else if (temp < -32768) {
+            temp = -32768;
+            clipped = true;
+        }
+        
+        buffer[i] = (int16_t)temp;
+    }
+    return clipped; // Returns true if any sample in this buffer was clamped
+}
+
 esp_err_t MIC_I2S::i2s_record_audio_aac(uint32_t rec_time, const char* fileName)
 {
     // Use POSIX and C standard library functions to work with files.
@@ -135,7 +156,6 @@ esp_err_t MIC_I2S::i2s_record_audio_aac(uint32_t rec_time, const char* fileName)
         .bitrate            = CODEC_BITRATE,                       
         .adts_used          = true,             // Use ADTS header
     };
-    // esp_aac_enc_config_t aac_cfg = ESP_AAC_ENC_CONFIG_DEFAULT();
     // Audio Encoder Config
     esp_audio_enc_config_t enc_cfg = {
         .type = ESP_AUDIO_TYPE_AAC,
@@ -161,31 +181,34 @@ esp_err_t MIC_I2S::i2s_record_audio_aac(uint32_t rec_time, const char* fileName)
 
     uint64_t start_time = esp_timer_get_time();
     uint64_t record_end_time = start_time + (RECORD_DURATION * 1000000ULL);
+    uint8_t audio_gain = AUDIO_GAIN;
     while (esp_timer_get_time() < record_end_time) {
         err = i2s_channel_read(rx_handle, audio_buffer, I2S_RECV_BUFFER_SIZE, &bytes_read, portMAX_DELAY);
-        if(err == ESP_OK && bytes_read > 0)
-        {
-            // In frame buffer
-            esp_audio_enc_in_frame_t in_frame = {
-                .buffer = audio_buffer + 1,      // Adjust the volume
-                .len = AAC_CODEC_BUFFER_SIZE,    // Double number of DMA frame buffer 
-            };
-            // Out frame buffer
-            esp_audio_enc_out_frame_t out_frame = {
-                .buffer = fileWrite_buffer,
-                .len = AAC_CODEC_BUFFER_SIZE,    // Double number of DMA frame buffer 
-            };
+        bool isClipped = adjust_volume((int16_t*)audio_buffer, bytes_read / 2, audio_gain); // Example: 1.5x gain
+        
+        if(isClipped) {
+            audio_gain -= 10; // Reduce gain slightly for the next chunk
+            if (audio_gain < 10) audio_gain = 10; // Don't go below original volume
+            ESP_LOGW("AUDIO", "Clipping detected! Reducing gain to %d", audio_gain);
+        }
+        if(err == ESP_OK && bytes_read > 0) {
+            for (int offset = 0; offset + AAC_CODEC_BUFFER_SIZE <= bytes_read; offset += AAC_CODEC_BUFFER_SIZE) 
+            { 
+                esp_audio_enc_in_frame_t in_frame = {
+                    .buffer = audio_buffer + offset,
+                    .len = AAC_CODEC_BUFFER_SIZE,
+                };
 
-            // Encode the data
-            err = esp_audio_enc_process(encoder, &in_frame, &out_frame);
-            if (err == ESP_OK && out_frame.encoded_bytes > 0) 
-            {
-                size_t written = write(fd, (char*)out_frame.buffer, out_frame.encoded_bytes); // maybe the len is not the same as AAC_CODEC_BUFFER_SIZE, need to use the actual length of encoded data
-                flash_wr_size += written;
-            }
-            else{
-                ESP_LOGE(RECORD_TAG, "Failed to encode the data");
-                return ESP_FAIL;
+                esp_audio_enc_out_frame_t out_frame = {
+                    .buffer = fileWrite_buffer,
+                    .len = AAC_CODEC_BUFFER_SIZE,
+                };
+
+                err = esp_audio_enc_process(encoder, &in_frame, &out_frame);
+                if (err == ESP_OK && out_frame.encoded_bytes > 0) {
+                    size_t written = write(fd, (char*)out_frame.buffer, out_frame.encoded_bytes); // maybe the len is not the same as AAC_CODEC_BUFFER_SIZE, need to use the actual length of encoded data
+                    flash_wr_size += written;
+                }
             }
         }
     }
