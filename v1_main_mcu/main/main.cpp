@@ -40,9 +40,12 @@ TaskHandle_t record_task_hdl;
 // #define TASK_3_BLE_ACTIVE_BIT           4
 // EventGroupHandle_t xEventGroup;
 
+// Private Variables
+static esp_err_t uploadStatus = ESP_FAIL;
+
 #ifdef ENABLE_WIFI_TESTING
 NTP ntp;
-static void http_test_task(void *pvParameters)
+static void upload_file_task(void *pvParameters)
 {
     for(;;)
     {
@@ -51,7 +54,31 @@ static void http_test_task(void *pvParameters)
             std::string _url = "http://" + std::string(gateway_ip) + ":5000/";
             // http_client.init(_url.c_str());
             // http_client.send_post_request(HTTP_UPLOAD_FILE, SD_TEST_PATH);
-            xSemaphoreGive(sem_task);
+
+            // Upload if SD Card i mounted and WiFi is connected
+            if(sd_mounted == ESP_OK && wifi.wifi_status() == WIFI_STATE_CONNECTED)
+            {   
+                std::vector<std::string> listFile = sd_card.list_directory("/sdcard");
+                // Print files inside the directory for debugging
+                sd_card.print_directory(listFile);
+
+                // // Upload file when the SD Card isn't empty
+                // if(listFile.size() != 0)
+                // {   
+                //     // Upload file
+                //     uploadStatus = http_client.uploadAACFile(listFile[0].c_str());
+                //     if(uploadStatus == ESP_OK){
+                //         sd_card.remove_file(listFile[0].c_str());
+                //     }
+                // }        
+                // // Trying to reconnect to the WiFi while still recording
+                // else if(wifi.wifi_status() == WIFI_STATE_DISCONNECTED)
+                // {
+                //     wifi_retry_num = 0;
+                //     esp_wifi_connect();
+                // }
+                xSemaphoreGive(sem_task);
+            }
             vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
     }
@@ -184,7 +211,7 @@ extern "C" void app_main(void)
     // if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
     // {
     //      xTaskCreatePinnedToCore(
-    //         http_test_task,                         // Task code
+    //         upload_file_task,                         // Task code
     //         "HTTP Test Task",                       // Task name
     //         8 * 1024,                               // Stack size
     //         record_task_hdl,                        // Parameter to be passed
@@ -197,7 +224,7 @@ extern "C" void app_main(void)
     if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
     {
          xTaskCreatePinnedToCore(
-            http_test_task,                         // Task code
+            upload_file_task,                         // Task code
             "HTTP Test Task",                       // Task name
             8 * 1024,                               // Stack size
             NULL,                        // Parameter to be passed

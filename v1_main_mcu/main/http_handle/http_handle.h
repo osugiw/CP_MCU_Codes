@@ -46,6 +46,14 @@ class HTTP_Class {
          * @return None
          */
         void send_post_request(const char* url, const char* fileName);
+
+        /**
+        *   @brief  Upload AAC Audio to the Dropbox drive
+        *   @param  filePath            SD Card file
+        *   @return 
+        *           Status of file uploading
+        */
+       esp_err_t uploadAACFile(const char* filePath);
 };
 
 

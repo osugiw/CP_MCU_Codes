@@ -1,4 +1,7 @@
 #include "http_handle.h"
+#include "esp_tls.h"
+#include "esp_crt_bundle.h"
+
 // Private Variables
 static const char *HTTP_TAG = "HTTP_CLIENT";
 
@@ -132,4 +135,131 @@ void HTTP_Class::send_post_request(const char* url, const char* fileName)
         }
     }
     esp_http_client_cleanup(client);
+}
+
+esp_err_t HTTP_Class::uploadAACFile(const char* filePath)
+{
+    esp_err_t err = ESP_OK;
+
+    // SD Card file path
+    std::string sdPath;
+    sdPath.clear();
+    sdPath.append("/sdcard/"); 
+    sdPath.append(filePath);
+
+    // SD Card things
+    int fd;
+    uint8_t *in_buf     = (uint8_t *)malloc(AAC_CODEC_BUFFER_SIZE);
+    uint32_t read_size  = 0;
+    uint32_t file_size  = 0;
+    struct stat info;
+    
+    // Check file info
+    if (stat(sdPath.c_str(), &info) < 0) {
+        ESP_LOGE(HTTP_TAG, "Failed to stat file: %s", strerror(errno));
+        return ESP_FAIL;
+    }
+    file_size = (uint32_t) info.st_size;
+    ESP_LOGI(HTTP_TAG, "File %s (%ld) bytes", sdPath.c_str(), file_size);
+    
+    // Remove the file since it might be corrupt
+    if(file_size <= 0)
+    {
+        if(sd_card.remove_file(sdPath.c_str()) != ESP_OK)
+        {
+            return ESP_FAIL;
+        }
+    }
+    // File is not corrupt
+    else 
+    {
+        // Open File
+        fd = open(sdPath.c_str(), O_RDONLY, 0);
+        if (fd < 0) {
+            ESP_LOGE(HTTP_TAG, "File %s not found", sdPath.c_str());
+            return ESP_FAIL;
+        }
+        ESP_LOGI(HTTP_TAG, "Uploading %s to Dropbox", sdPath.c_str());
+
+        char response_buffer[MAX_HTTP_RESPONSE_BUFFER + 1] = {0};
+        int content_length = 0;
+        esp_http_client_config_t config = {
+            .url = UPLOAD_URL,
+            .method = HTTP_METHOD_POST,
+            .timeout_ms = (RECORD_DURATION + 200) * 1000,
+            .disable_auto_redirect = true,
+            .buffer_size = MAX_HTTP_RESPONSE_BUFFER,
+            .buffer_size_tx = AAC_CODEC_BUFFER_SIZE,
+            // .crt_bundle_attach = esp_crt_bundle_attach,
+            // .transport_type = HTTP_TRANSPORT_OVER_SSL,  // Required for HTTPS
+            .keep_alive_enable = true,
+            .keep_alive_interval = 20
+        };
+        esp_http_client_handle_t client = esp_http_client_init(&config);
+
+        // Set HTTP header
+        // esp_http_client_set_header(client, "Dropbox-API-Arg", fullPath.c_str());
+        esp_http_client_set_header(client, "Content-Type", "application/octet-stream");
+        err = esp_http_client_open(client, file_size);
+        if (err != ESP_OK) {
+            ESP_LOGE(HTTP_TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
+            return ESP_FAIL;
+        } 
+        else {
+            size_t chunkSize;
+            do {
+                // Read file into buffer
+                chunkSize = read(fd, in_buf, AAC_CODEC_BUFFER_SIZE);
+                // ESP_LOGI(HTTP_TAG, "Data len %d", chunkSize);
+
+                /*  Stream data */
+                if(chunkSize > 0)
+                {
+                    if (esp_http_client_write(client, (char*)in_buf, chunkSize) < 0) 
+                    {
+                        ESP_LOGE(HTTP_TAG, "HTTP Write failed"); 
+                        close(fd);
+                        free(in_buf);
+                        sdPath.clear();
+                        esp_http_client_cleanup(client);
+                        return ESP_FAIL;
+                    }
+                    read_size += chunkSize;
+                    ESP_LOGI(HTTP_TAG, "Transmitted data: %ld bytes", read_size);
+                }            
+            } while(read_size < file_size);
+            close(fd);
+            free(in_buf);
+            sdPath.clear();
+
+            // Read server response
+            content_length = esp_http_client_fetch_headers(client);
+            if (content_length < 0) {
+                ESP_LOGE(HTTP_TAG, "HTTP client fetch headers failed");
+                esp_http_client_cleanup(client);
+                return ESP_FAIL;
+            } 
+            else 
+            {
+                int data_read = esp_http_client_read_response(client, response_buffer, MAX_HTTP_RESPONSE_BUFFER);
+                if (data_read >= 0) 
+                {
+                    int retCode = esp_http_client_get_status_code(client); 
+                    ESP_LOGI(HTTP_TAG, "HTTP POST Status = %d, content_length = %"PRId64"", retCode, esp_http_client_get_content_length(client));
+                    ESP_LOGI(HTTP_TAG, "%s", response_buffer);
+                    // ESP_LOG_BUFFER_CHAR(HTTP_TAG, response_buffer, strlen(response_buffer));
+                    if(retCode != HttpStatus_Ok)
+                    {
+                        ESP_LOGE(HTTP_TAG, "Failed to upload with code %d", retCode);
+                        esp_http_client_cleanup(client);
+                        return ESP_FAIL;
+                    }
+                } else {
+                    ESP_LOGE(HTTP_TAG, "Failed to read response");
+                }
+            }
+        }
+        esp_http_client_cleanup(client);
+    }
+    return ESP_OK;
 }

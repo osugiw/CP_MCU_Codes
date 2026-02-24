@@ -6,6 +6,7 @@ idf_component_register(
                 nvs_flash 
                 esp_http_client
                 esp_driver_i2s
+                esp-tls
     INCLUDE_DIRS 
                 "."
                 "./sd_card"
