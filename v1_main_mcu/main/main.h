@@ -40,8 +40,8 @@ typedef struct {
 #define SAMPLE_DEVICE_NAME         "WEARABLE_PHI"
 
 // WiFi Parameters
-#define WIFI_SSID                  "PHI_LB"
-#define WIFI_PASSWORD              "09876543"
+#define WIFI_SSID                   "ASUS"
+#define WIFI_PASSWORD               "brkbrkbrkb09"
 
 // SD Card Paremeters
 #define MAX_SD_READ_SIZE            512
@@ -82,7 +82,7 @@ typedef struct {
 
 // HTTP Client
 #define HTTP_ENDPOINT       "http://httpbin.org"
-#define UPLOAD_URL          "http://httpbin.org/post"
+#define UPLOAD_URL          "http://100.120.159.54:5000/upload"
 
 // Debug TAGs
 static const char *SD_TAG = "SD_CARD";

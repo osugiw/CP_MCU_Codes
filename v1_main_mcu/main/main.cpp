@@ -51,7 +51,7 @@ static void upload_file_task(void *pvParameters)
     {
         if(xSemaphoreTake(sem_task, portMAX_DELAY) == pdPASS)
         {   
-            std::string _url = "http://" + std::string(gateway_ip) + ":5000/";
+            // std::string _url = "http://" + std::string(gateway_ip) + ":5000/";
             // http_client.init(_url.c_str());
             // http_client.send_post_request(HTTP_UPLOAD_FILE, SD_TEST_PATH);
 
@@ -60,23 +60,23 @@ static void upload_file_task(void *pvParameters)
             {   
                 std::vector<std::string> listFile = sd_card.list_directory("/sdcard");
                 // Print files inside the directory for debugging
-                sd_card.print_directory(listFile);
+                // sd_card.print_directory(listFile);
 
-                // // Upload file when the SD Card isn't empty
-                // if(listFile.size() != 0)
-                // {   
-                //     // Upload file
-                //     uploadStatus = http_client.uploadAACFile(listFile[0].c_str());
-                //     if(uploadStatus == ESP_OK){
-                //         sd_card.remove_file(listFile[0].c_str());
-                //     }
-                // }        
-                // // Trying to reconnect to the WiFi while still recording
-                // else if(wifi.wifi_status() == WIFI_STATE_DISCONNECTED)
-                // {
-                //     wifi_retry_num = 0;
-                //     esp_wifi_connect();
-                // }
+                // Upload file when the SD Card isn't empty
+                if(listFile.size() != 0)
+                {   
+                    // Upload file
+                    uploadStatus = http_client.uploadAACFile(listFile[0].c_str());
+                    if(uploadStatus == ESP_OK){
+                        sd_card.remove_file(listFile[0].c_str());
+                    }
+                }        
+                // Trying to reconnect to the WiFi while still recording
+                else if(wifi.wifi_status() == WIFI_STATE_DISCONNECTED)
+                {
+                    wifi_retry_num = 0;
+                    esp_wifi_connect();
+                }
                 xSemaphoreGive(sem_task);
             }
             vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -149,14 +149,6 @@ extern "C" void app_main(void)
 {
     esp_err_t ret;
 
-    /* Initialize NVS. */
-    ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( ret );
-
     // Initialize SD Card
     sd_mounted = sd_card.initialize();
 
@@ -169,6 +161,14 @@ extern "C" void app_main(void)
 
     // Initialize the MIC I2S
     mic.init_pdm();
+
+    /* Initialize NVS. */
+    ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK( ret );
 
 #ifdef ENABLE_WIFI_TESTING
     wifi.init();
@@ -251,7 +251,7 @@ extern "C" void app_main(void)
     {
         /* code */
         // printf("Main task running...\n");
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
     
 }

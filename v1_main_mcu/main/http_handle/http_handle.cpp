@@ -179,7 +179,7 @@ esp_err_t HTTP_Class::uploadAACFile(const char* filePath)
             ESP_LOGE(HTTP_TAG, "File %s not found", sdPath.c_str());
             return ESP_FAIL;
         }
-        ESP_LOGI(HTTP_TAG, "Uploading %s to Dropbox", sdPath.c_str());
+        ESP_LOGI(HTTP_TAG, "Uploading %s to server", sdPath.c_str());
 
         char response_buffer[MAX_HTTP_RESPONSE_BUFFER + 1] = {0};
         int content_length = 0;

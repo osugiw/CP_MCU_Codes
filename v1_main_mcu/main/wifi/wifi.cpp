@@ -89,12 +89,18 @@ void WIFI_Class::init(void)
         .sta = {
             .ssid = WIFI_SSID,
             .password = WIFI_PASSWORD,
-        },
+        }
     };
     ret = esp_wifi_set_mode(WIFI_MODE_STA);
     if (ret != ESP_OK) {
         wifi_state = ERR_WIFI_FAIL_SET_MODE;
         ESP_LOGE(WIFI_TAG, "WiFi set mode failed: %s", esp_err_to_name(ret));
+        return;
+    }
+    ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    if (ret != ESP_OK) {
+        wifi_state = ERR_WIFI_FAIL_SET_CONFIG;
+        ESP_LOGE(WIFI_TAG, "WiFi set config failed: %s", esp_err_to_name(ret));
         return;
     }
 }
