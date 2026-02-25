@@ -32,7 +32,7 @@ typedef struct {
 // Testing Purposes
 #define ENABLE_WIFI_TESTING             
 // #define ENABLE_BLE_TESTING         
-// #define GENERATE_DUMMY_5KB_FILE     
+#define GENERATE_DUMMY_5KB_FILE     
 
 // Device settings
 #define MAX_DEV_SETT_DATA           1
@@ -78,11 +78,17 @@ typedef struct {
 #define RECORD_DURATION         10          // In seconds  
 #define MIN_SPACE_LEFT          100          // In MB
 #define NUM_FILES_REMOVE        5
-#define FILE_EXTENSION          ".aac"
+
+#ifdef GENERATE_DUMMY_5KB_FILE
+    #define FILE_EXTENSION          ".txt"
+#else
+    #define FILE_EXTENSION          ".aac"
+#endif
 
 // HTTP Client
-#define HTTP_ENDPOINT       "http://httpbin.org"
-#define UPLOAD_URL          "http://100.120.159.54:5000/upload"
+#define HTTP_ENDPOINT           "http://httpbin.org"
+#define HTTP_ROOT_URL           "http://100.120.159.54:5000"
+#define HTTP_UPLOAD_URL         "http://100.120.159.54:5000/upload"
 
 // Debug TAGs
 static const char *SD_TAG = "SD_CARD";

@@ -31,6 +31,8 @@ void HTTP_Class::init(const char* url)
     } else {
         ESP_LOGE(HTTP_TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
     }
+    esp_http_client_cleanup(client);
+    esp_http_client_close(client);
 }
 
 
@@ -63,81 +65,105 @@ void HTTP_Class::send_get_request(const char* url)
             }
         }
     }
+    esp_http_client_cleanup(client);
     esp_http_client_close(client);
 }
 
 
-void HTTP_Class::send_post_request(const char* url, const char* fileName)
+esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
 {
     // Check file size
     size_t offset = 0;
     int bytes_read = 0;
     int total_bytes_read = 0;
     uint8_t file_chunk[MAX_SD_READ_SIZE] = {};
-    int check_file_size = sd_card.check_file_size(fileName);
-    ESP_LOGI(HTTP_TAG, "Preparing to upload file %s of size %d bytes", fileName, check_file_size);
 
-    std::string _url = std::string(url) + "upload_file";
-    esp_http_client_config_t config = {
-        .url = _url.c_str(),
-        .method = HTTP_METHOD_POST,
-        .buffer_size = MAX_HTTP_RESPONSE_BUFFER,
-        .buffer_size_tx = check_file_size,
-    };
-    char response_buffer[MAX_HTTP_RESPONSE_BUFFER + 1] = {0};
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    ESP_LOGI(HTTP_TAG, "Initialized HTTP Client connection to %s", _url.c_str());
+    // SD Card file path
+    std::string sdPath;
+    sdPath.clear();
+    sdPath.append("/sdcard/"); 
+    sdPath.append(fileName);
 
-    std::string content_disposition = "Content-Disposition: form-data; name=\"file\"; filename=\"" + std::string(fileName) + "\"";
-    esp_http_client_set_header(client, "Content-Disposition", content_disposition.c_str());
-    esp_http_client_set_header(client, "Content-Type", "application/octet-stream");
-    esp_err_t err = esp_http_client_open(client, check_file_size);    
-    if (err != ESP_OK) {
-        ESP_LOGE(HTTP_TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
-    } 
-    else 
+    int check_file_size = sd_card.check_file_size(sdPath.c_str());
+    ESP_LOGI(HTTP_TAG, "Preparing to upload file %s of size %d bytes", sdPath.c_str(), check_file_size);
+    // Remove the file since it might be corrupt
+    if(check_file_size <= 0)
     {
-        // Stream data
-        ESP_LOGI(SD_TAG, "Reading file %s (%d bytes)", fileName, check_file_size);
-        while(total_bytes_read < check_file_size )
+        if(sd_card.remove_file(sdPath.c_str()) != ESP_OK)
         {
-            bytes_read = sd_card.read_file(SD_TEST_PATH, file_chunk, offset, MAX_SD_READ_SIZE);
-            ESP_LOGI(SD_TAG, "%s", file_chunk);
-
-            int wlen = esp_http_client_write(client, (char*)file_chunk, bytes_read);
-            if (wlen < 0) {
-                ESP_LOGE(HTTP_TAG, "Write failed");
-            }
-            // Increment starting point to read next chunk
-            offset += bytes_read;
-            // Accumulate total bytes read
-            total_bytes_read += bytes_read;
-            memset(file_chunk, 0, sizeof(file_chunk)); // Clear the buffer
-        }
-
-        // Finish the request and read response        
-        int content_length = esp_http_client_fetch_headers(client);
-        if (content_length < 0) {
-            ESP_LOGE(HTTP_TAG, "HTTP client fetch headers failed");
-        } 
-        else {
-            int data_read = esp_http_client_read_response(client, response_buffer, MAX_HTTP_RESPONSE_BUFFER);
-            if (data_read >= 0) {
-                ESP_LOGI(HTTP_TAG, "HTTP POST Status = %d, content_length = %"PRId64,
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-                ESP_LOGI(HTTP_TAG, "%s", response_buffer);
-                // ESP_LOG_BUFFER_CHAR(HTTP_TAG, response_buffer, strlen(response_buffer));
-            } 
-            else {
-                ESP_LOGE(HTTP_TAG, "Failed to read response");
-            }
+            return ESP_FAIL;
         }
     }
-    esp_http_client_cleanup(client);
+    else 
+    {
+        ESP_LOGI(HTTP_TAG, "File %s is ready for upload", sdPath.c_str());
+        esp_http_client_config_t config = {
+            .url = url,
+            .method = HTTP_METHOD_POST,
+            .timeout_ms = 60000,
+            .buffer_size = MAX_HTTP_RESPONSE_BUFFER,
+            .buffer_size_tx = check_file_size,
+        };
+        char response_buffer[MAX_HTTP_RESPONSE_BUFFER + 1] = {0};
+        esp_http_client_handle_t client = esp_http_client_init(&config);
+        ESP_LOGI(HTTP_TAG, "Initialized HTTP Client connection to %s", url);
+
+        esp_http_client_set_header(client, "Content-Type", "text/plain");
+        esp_http_client_set_header(client, "Content-Length", std::to_string(check_file_size).c_str());
+        // esp_http_client_set_header(client, "Connection", "keep-alive");
+        esp_http_client_set_header(client, "Expect", "100-continue");
+        esp_http_client_set_header(client, "File-Name", fileName);
+        
+        esp_err_t err = esp_http_client_open(client, check_file_size);    
+        if (err != ESP_OK) {
+            ESP_LOGE(HTTP_TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
+        } 
+        else 
+        {
+            // Stream data
+            ESP_LOGI(SD_TAG, "Reading file %s (%d bytes)", sdPath.c_str(), check_file_size);
+            while(total_bytes_read < check_file_size )
+            {
+                bytes_read = sd_card.read_file(sdPath.c_str(), file_chunk, offset, MAX_SD_READ_SIZE);
+                ESP_LOGI(SD_TAG, "%s", file_chunk);
+
+                int wlen = esp_http_client_write(client, (char*)file_chunk, bytes_read);
+                if (wlen < 0) {
+                    ESP_LOGE(HTTP_TAG, "Write failed");
+                }
+                // Increment starting point to read next chunk
+                offset += bytes_read;
+                // Accumulate total bytes read
+                total_bytes_read += bytes_read;
+                memset(file_chunk, 0, sizeof(file_chunk)); // Clear the buffer
+            }
+
+            // Finish the request and read response        
+            int content_length = esp_http_client_fetch_headers(client);
+            if (content_length < 0) {
+                ESP_LOGE(HTTP_TAG, "HTTP client fetch headers failed");
+            } 
+            else {
+                int data_read = esp_http_client_read_response(client, response_buffer, MAX_HTTP_RESPONSE_BUFFER);
+                if (data_read >= 0) {
+                    ESP_LOGI(HTTP_TAG, "HTTP POST Status = %d, content_length = %"PRId64,
+                    esp_http_client_get_status_code(client),
+                    esp_http_client_get_content_length(client));
+                    ESP_LOGI(HTTP_TAG, "%s", response_buffer);
+                    // ESP_LOG_BUFFER_CHAR(HTTP_TAG, response_buffer, strlen(response_buffer));
+                } 
+                else {
+                    ESP_LOGE(HTTP_TAG, "Failed to read response");
+                }
+            }
+        }
+        esp_http_client_cleanup(client);
+        return err;
+    }
+    return ESP_OK;
 }
 
-esp_err_t HTTP_Class::uploadAACFile(const char* filePath)
+esp_err_t HTTP_Class::uploadAACFile(const char* fileName)
 {
     esp_err_t err = ESP_OK;
 
@@ -145,7 +171,7 @@ esp_err_t HTTP_Class::uploadAACFile(const char* filePath)
     std::string sdPath;
     sdPath.clear();
     sdPath.append("/sdcard/"); 
-    sdPath.append(filePath);
+    sdPath.append(fileName);
 
     // SD Card things
     int fd;
@@ -184,13 +210,13 @@ esp_err_t HTTP_Class::uploadAACFile(const char* filePath)
         char response_buffer[MAX_HTTP_RESPONSE_BUFFER + 1] = {0};
         int content_length = 0;
         esp_http_client_config_t config = {
-            .url = UPLOAD_URL,
+            .url = HTTP_UPLOAD_URL,
             .method = HTTP_METHOD_POST,
             .timeout_ms = (RECORD_DURATION + 200) * 1000,
             .disable_auto_redirect = true,
             .buffer_size = MAX_HTTP_RESPONSE_BUFFER,
             .buffer_size_tx = AAC_CODEC_BUFFER_SIZE,
-            // .crt_bundle_attach = esp_crt_bundle_attach,
+            .crt_bundle_attach = esp_crt_bundle_attach,
             // .transport_type = HTTP_TRANSPORT_OVER_SSL,  // Required for HTTPS
             .keep_alive_enable = true,
             .keep_alive_interval = 20

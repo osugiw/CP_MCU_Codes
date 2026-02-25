@@ -43,17 +43,17 @@ class HTTP_Class {
          * @brief  Send a POST request to the specified URL with the TXT file data as the body
          * @param  url The URL to send the POST request to
          * @param  fileName The name of the file being uploaded (for logging purposes)
-         * @return None
+         * @return ESP_OK if successful, ESP_FAIL otherwise
          */
-        void send_post_request(const char* url, const char* fileName);
+        esp_err_t send_post_request(const char* url, const char* fileName);
 
         /**
         *   @brief  Upload AAC Audio to the Dropbox drive
-        *   @param  filePath            SD Card file
+        *   @param  fileName            SD Card file
         *   @return 
         *           Status of file uploading
         */
-       esp_err_t uploadAACFile(const char* filePath);
+       esp_err_t uploadAACFile(const char* fileName);
 };
 
 

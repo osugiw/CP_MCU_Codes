@@ -51,8 +51,7 @@ static void upload_file_task(void *pvParameters)
     {
         if(xSemaphoreTake(sem_task, portMAX_DELAY) == pdPASS)
         {   
-            // std::string _url = "http://" + std::string(gateway_ip) + ":5000/";
-            // http_client.init(_url.c_str());
+            http_client.init(HTTP_ROOT_URL);
             // http_client.send_post_request(HTTP_UPLOAD_FILE, SD_TEST_PATH);
 
             // Upload if SD Card i mounted and WiFi is connected
@@ -62,21 +61,24 @@ static void upload_file_task(void *pvParameters)
                 // Print files inside the directory for debugging
                 // sd_card.print_directory(listFile);
 
-                // Upload file when the SD Card isn't empty
-                if(listFile.size() != 0)
-                {   
-                    // Upload file
-                    uploadStatus = http_client.uploadAACFile(listFile[0].c_str());
-                    if(uploadStatus == ESP_OK){
-                        sd_card.remove_file(listFile[0].c_str());
-                    }
-                }        
-                // Trying to reconnect to the WiFi while still recording
-                else if(wifi.wifi_status() == WIFI_STATE_DISCONNECTED)
-                {
-                    wifi_retry_num = 0;
-                    esp_wifi_connect();
-                }
+//                 // Upload file when the SD Card isn't empty
+//                 if(listFile.size() != 0)
+//                 {   
+// #ifdef GENERATE_DUMMY_5KB_FILE
+//                     uploadStatus = http_client.send_post_request(HTTP_UPLOAD_URL, listFile[0].c_str());
+// #else
+//                     uploadStatus = http_client.uploadAACFile(listFile[0].c_str());
+// #endif   
+//                     if(uploadStatus == ESP_OK){
+//                         sd_card.remove_file(listFile[0].c_str());
+//                     }
+//                 }        
+//                 // Trying to reconnect to the WiFi while still recording
+//                 else if(wifi.wifi_status() == WIFI_STATE_DISCONNECTED)
+//                 {
+//                     wifi_retry_num = 0;
+//                     esp_wifi_connect();
+//                 }
                 xSemaphoreGive(sem_task);
             }
             vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -104,7 +106,7 @@ void record_and_save_task(void *args)
                 {
                     fileName.clear();
                     currentDateTime = ntp.currentDateTime();
-                    
+
                     if(currentDateTime.empty())
                     {
                         randomName = esp_random();
@@ -126,7 +128,11 @@ void record_and_save_task(void *args)
                     if(free_space > MIN_SPACE_LEFT)
                     {
                         ESP_LOGI(RECORD_TAG, "Recording is is in progress");
-                        esp_err_t err = mic.i2s_record_audio_aac(RECORD_DURATION, fileName.c_str()); 
+#ifdef GENERATE_DUMMY_5KB_FILE
+                        // sd_card.generate_5kb_test_file(fileName.c_str());
+#else
+                        esp_err_t err = mic.i2s_record_audio_aac(RECORD_DURATION, fileName.c_str());
+#endif
                     //     if(err != ESP_OK)
                     //     {
                     //         esp_restart();
@@ -151,13 +157,6 @@ extern "C" void app_main(void)
 
     // Initialize SD Card
     sd_mounted = sd_card.initialize();
-
-#ifdef GENERATE_DUMMY_5KB_FILE
-    if (sd_mounted == ESP_OK)
-        sd_card.generate_5kb_test_file(SD_TEST_PATH);
-    else
-        ESP_LOGE(SD_TAG, "Failed to mount SD Card");
-#endif
 
     // Initialize the MIC I2S
     mic.init_pdm();
