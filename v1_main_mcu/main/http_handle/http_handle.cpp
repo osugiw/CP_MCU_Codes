@@ -72,94 +72,93 @@ void HTTP_Class::send_get_request(const char* url)
 
 esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
 {
-    // Check file size
     size_t offset = 0;
     int bytes_read = 0;
     int total_bytes_read = 0;
     uint8_t file_chunk[MAX_SD_READ_SIZE] = {};
 
     // SD Card file path
-    std::string sdPath;
-    sdPath.clear();
-    sdPath.append("/sdcard/"); 
-    sdPath.append(fileName);
+    std::string sdPath = "/sdcard/";
+    sdPath += fileName;
 
-    int check_file_size = sd_card.check_file_size(sdPath.c_str());
-    ESP_LOGI(HTTP_TAG, "Preparing to upload file %s of size %d bytes", sdPath.c_str(), check_file_size);
-    // Remove the file since it might be corrupt
-    if(check_file_size <= 0)
-    {
-        if(sd_card.remove_file(sdPath.c_str()) != ESP_OK)
-        {
-            return ESP_FAIL;
-        }
+    int file_size = sd_card.check_file_size(sdPath.c_str());
+    ESP_LOGI(HTTP_TAG, "Preparing to upload file %s of size %d bytes", sdPath.c_str(), file_size);
+
+    if (file_size <= 0) {
+        ESP_LOGE(HTTP_TAG, "File is empty or missing: %s", sdPath.c_str());
+        return ESP_FAIL;
     }
-    else 
-    {
-        ESP_LOGI(HTTP_TAG, "File %s is ready for upload", sdPath.c_str());
-        esp_http_client_config_t config = {
-            .url = url,
-            .method = HTTP_METHOD_POST,
-            .timeout_ms = 60000,
-            .buffer_size = MAX_HTTP_RESPONSE_BUFFER,
-            .buffer_size_tx = check_file_size,
-        };
-        char response_buffer[MAX_HTTP_RESPONSE_BUFFER + 1] = {0};
-        esp_http_client_handle_t client = esp_http_client_init(&config);
-        ESP_LOGI(HTTP_TAG, "Initialized HTTP Client connection to %s", url);
 
-        esp_http_client_set_header(client, "Content-Type", "text/plain");
-        esp_http_client_set_header(client, "Content-Length", std::to_string(check_file_size).c_str());
-        // esp_http_client_set_header(client, "Connection", "keep-alive");
-        esp_http_client_set_header(client, "Expect", "100-continue");
-        esp_http_client_set_header(client, "File-Name", fileName);
-        
-        esp_err_t err = esp_http_client_open(client, check_file_size);    
-        if (err != ESP_OK) {
-            ESP_LOGE(HTTP_TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
-        } 
-        else 
-        {
-            // Stream data
-            ESP_LOGI(SD_TAG, "Reading file %s (%d bytes)", sdPath.c_str(), check_file_size);
-            while(total_bytes_read < check_file_size )
-            {
-                bytes_read = sd_card.read_file(sdPath.c_str(), file_chunk, offset, MAX_SD_READ_SIZE);
-                ESP_LOGI(SD_TAG, "%s", file_chunk);
+    // Define boundary for multipart
+    const char* boundary = "----ESP32Boundary1234";
+    std::string body_start =
+        "--" + std::string(boundary) + "\r\n"
+        "Content-Disposition: form-data; name=\"file\"; filename=\"" + std::string(fileName) + "\"\r\n"
+        "Content-Type: application/octet-stream\r\n\r\n";
 
-                int wlen = esp_http_client_write(client, (char*)file_chunk, bytes_read);
-                if (wlen < 0) {
-                    ESP_LOGE(HTTP_TAG, "Write failed");
-                }
-                // Increment starting point to read next chunk
-                offset += bytes_read;
-                // Accumulate total bytes read
-                total_bytes_read += bytes_read;
-                memset(file_chunk, 0, sizeof(file_chunk)); // Clear the buffer
-            }
+    std::string body_end = "\r\n--" + std::string(boundary) + "--\r\n";
 
-            // Finish the request and read response        
-            int content_length = esp_http_client_fetch_headers(client);
-            if (content_length < 0) {
-                ESP_LOGE(HTTP_TAG, "HTTP client fetch headers failed");
-            } 
-            else {
-                int data_read = esp_http_client_read_response(client, response_buffer, MAX_HTTP_RESPONSE_BUFFER);
-                if (data_read >= 0) {
-                    ESP_LOGI(HTTP_TAG, "HTTP POST Status = %d, content_length = %"PRId64,
-                    esp_http_client_get_status_code(client),
-                    esp_http_client_get_content_length(client));
-                    ESP_LOGI(HTTP_TAG, "%s", response_buffer);
-                    // ESP_LOG_BUFFER_CHAR(HTTP_TAG, response_buffer, strlen(response_buffer));
-                } 
-                else {
-                    ESP_LOGE(HTTP_TAG, "Failed to read response");
-                }
-            }
-        }
+    int total_length = body_start.length() + file_size + body_end.length();
+
+    // HTTP client config
+    esp_http_client_config_t config = {
+        .url = url,
+        .method = HTTP_METHOD_POST,
+        .timeout_ms = 60000,
+        .buffer_size = MAX_HTTP_RESPONSE_BUFFER,
+        .buffer_size_tx = MAX_SD_READ_SIZE
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    ESP_LOGI(HTTP_TAG, "Initialized HTTP Client for %s", url);
+
+    // Set multipart header
+    std::string content_type = "multipart/form-data; boundary=" + std::string(boundary);
+    esp_http_client_set_header(client, "Content-Type", content_type.c_str());
+
+    // Open connection with the total length
+    esp_err_t err = esp_http_client_open(client, total_length);
+    if (err != ESP_OK) {
+        ESP_LOGE(HTTP_TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
         esp_http_client_cleanup(client);
         return err;
     }
+
+    // Send multipart body start
+    esp_http_client_write(client, body_start.c_str(), body_start.length());
+
+    // Send file in chunks
+    while (total_bytes_read < file_size) {
+        bytes_read = sd_card.read_file(sdPath.c_str(), file_chunk, offset, MAX_SD_READ_SIZE);
+        if (bytes_read <= 0) break;
+
+        int wlen = esp_http_client_write(client, (char*)file_chunk, bytes_read);
+        if (wlen < 0) {
+            ESP_LOGE(HTTP_TAG, "Failed to write file chunk");
+        }
+
+        offset += bytes_read;
+        total_bytes_read += bytes_read;
+    }
+
+    // Send multipart ending
+    esp_http_client_write(client, body_end.c_str(), body_end.length());
+
+    // Read server response
+    char response_buffer[MAX_HTTP_RESPONSE_BUFFER] = {0};
+    int content_length = esp_http_client_fetch_headers(client);
+    if (content_length >= 0) {
+        int data_read = esp_http_client_read_response(client, response_buffer, MAX_HTTP_RESPONSE_BUFFER);
+        if (data_read >= 0) {
+            ESP_LOGI(HTTP_TAG, "Server response: %s", response_buffer);
+        } else {
+            ESP_LOGE(HTTP_TAG, "Failed to read server response");
+        }
+    } else {
+        ESP_LOGE(HTTP_TAG, "Failed to fetch headers from server");
+    }
+
+    esp_http_client_cleanup(client);
     return ESP_OK;
 }
 
