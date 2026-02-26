@@ -86,44 +86,17 @@ esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
     std::string sdPath = "/sdcard/";
     sdPath += fileName;
 
-    int file_size = sd_card.check_file_size(sdPath.c_str());
+    uint32_t file_size = sd_card.check_file_size(sdPath.c_str());
     ESP_LOGI(HTTP_TAG, "Preparing to upload file %s of size %d bytes", sdPath.c_str(), file_size);
 
-    if (file_size <= 0) {
-        ESP_LOGE(HTTP_TAG, "File is empty or missing: %s", sdPath.c_str());
-        return ESP_FAIL;
-    }
-
-<<<<<<< HEAD
-        esp_http_client_set_header(client, "Content-Type", "application/octet-stream");
-        esp_http_client_set_header(client, "Content-Length", std::to_string(check_file_size).c_str());
-
-        
-        esp_err_t err = esp_http_client_open(client, check_file_size);    
-        if (err != ESP_OK) {
-            ESP_LOGE(HTTP_TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
-        } 
-        else 
+    if(file_size <= 0)
+    {
+        if(sd_card.remove_file(sdPath.c_str()) != ESP_OK)
         {
-            // Stream data
-            ESP_LOGI(SD_TAG, "Reading file %s (%d bytes)", sdPath.c_str(), check_file_size);
-            while(total_bytes_read < check_file_size )
-            {
-                bytes_read = sd_card.read_file(sdPath.c_str(), file_chunk, offset, MAX_SD_READ_SIZE);
-                // ESP_LOGI(SD_TAG, "%s", file_chunk);
-
-                int wlen = esp_http_client_write(client, (char*)file_chunk, bytes_read);
-                if (wlen < 0) {
-                    ESP_LOGE(HTTP_TAG, "Write failed");
-                    return ESP_FAIL;
-                }
-                // Increment starting point to read next chunk
-                offset += bytes_read;
-                // Accumulate total bytes read
-                total_bytes_read += bytes_read;
-                memset(file_chunk, 0, sizeof(file_chunk)); // Clear the buffer
-            }
-=======
+            return ESP_FAIL;
+        }
+    }
+    
     // Define boundary for multipart
     const char* boundary = "----ESP32Boundary1234";
     std::string body_start =
@@ -132,8 +105,6 @@ esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
         "Content-Type: application/octet-stream\r\n\r\n";
 
     std::string body_end = "\r\n--" + std::string(boundary) + "--\r\n";
->>>>>>> 9b5780803010988cb7ebabae6ef999ff24d375a7
-
     int total_length = body_start.length() + file_size + body_end.length();
 
     // HTTP client config
