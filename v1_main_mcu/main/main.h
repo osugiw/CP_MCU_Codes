@@ -32,7 +32,7 @@ typedef struct {
 // Testing Purposes
 #define ENABLE_WIFI_TESTING             
 // #define ENABLE_BLE_TESTING         
-#define GENERATE_DUMMY_5KB_FILE     
+// #define GENERATE_DUMMY_5KB_FILE     
 
 // Device settings
 #define MAX_DEV_SETT_DATA           1
@@ -87,8 +87,8 @@ typedef struct {
 
 // HTTP Client
 #define HTTP_ENDPOINT           "http://httpbin.org"
-#define HTTP_ROOT_URL           "http://100.120.159.54:5000"
-#define HTTP_UPLOAD_URL         "http://100.120.159.54:5000/upload"
+#define HTTP_ROOT_URL           "http://192.168.50.194:5000/"
+#define HTTP_UPLOAD_URL         "http://192.168.50.194:5000/upload"
 
 // Debug TAGs
 static const char *SD_TAG = "SD_CARD";

@@ -10,9 +10,13 @@ HTTP_Class::~HTTP_Class(){};
 
 void HTTP_Class::init(const char* url)
 {
-    char output_buffer[MAX_HTTP_RESPONSE_BUFFER + 1] = {0};   // Buffer to store response of http request
+    // char output_buffer[MAX_HTTP_RESPONSE_BUFFER + 1] = {0};   // Buffer to store response of http request
+    char* output_buffer = (char*)malloc(MAX_HTTP_RESPONSE_BUFFER + 1);
     esp_http_client_config_t config = {
         .url = url,
+        .timeout_ms = 5000,
+        // .crt_bundle_attach = esp_crt_bundle_attach,
+        
     };
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -20,19 +24,21 @@ void HTTP_Class::init(const char* url)
 
     esp_err_t err = esp_http_client_perform(client);
     if (err == ESP_OK) {
-        ESP_LOGI(HTTP_TAG, "HTTP GET Status = %d, content_length = %d", esp_http_client_get_status_code(client), esp_http_client_get_content_length(client));
-        int content_length  = esp_http_client_read(client, output_buffer, MAX_HTTP_RESPONSE_BUFFER);
-        if (content_length >= 0) {
-            output_buffer[content_length] = 0; // Null-terminate the buffer
-            ESP_LOGI(HTTP_TAG, "HTTP GET Response: %s", output_buffer);
-        } else {
-            ESP_LOGE(HTTP_TAG, "Failed to read response");
+        int status = esp_http_client_get_status_code(client);
+        int64_t len = esp_http_client_get_content_length(client);
+        ESP_LOGI(HTTP_TAG, "HTTP Status = %d, length = %lld", status, len);
+
+        // Since perform() already fetched data into internal buffers:
+        int data_read = esp_http_client_read_response(client, output_buffer, MAX_HTTP_RESPONSE_BUFFER);
+        if (data_read >= 0) {
+            output_buffer[data_read] = 0;
+            ESP_LOGI(HTTP_TAG, "Response: %s", output_buffer);
         }
     } else {
-        ESP_LOGE(HTTP_TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
+        ESP_LOGE(HTTP_TAG, "HTTP request failed: %s", esp_err_to_name(err));
     }
     esp_http_client_cleanup(client);
-    esp_http_client_close(client);
+    free(output_buffer);
 }
 
 
@@ -66,7 +72,6 @@ void HTTP_Class::send_get_request(const char* url)
         }
     }
     esp_http_client_cleanup(client);
-    esp_http_client_close(client);
 }
 
 
@@ -108,11 +113,9 @@ esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
         esp_http_client_handle_t client = esp_http_client_init(&config);
         ESP_LOGI(HTTP_TAG, "Initialized HTTP Client connection to %s", url);
 
-        esp_http_client_set_header(client, "Content-Type", "text/plain");
+        esp_http_client_set_header(client, "Content-Type", "application/octet-stream");
         esp_http_client_set_header(client, "Content-Length", std::to_string(check_file_size).c_str());
-        // esp_http_client_set_header(client, "Connection", "keep-alive");
-        esp_http_client_set_header(client, "Expect", "100-continue");
-        esp_http_client_set_header(client, "File-Name", fileName);
+
         
         esp_err_t err = esp_http_client_open(client, check_file_size);    
         if (err != ESP_OK) {
@@ -125,11 +128,12 @@ esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
             while(total_bytes_read < check_file_size )
             {
                 bytes_read = sd_card.read_file(sdPath.c_str(), file_chunk, offset, MAX_SD_READ_SIZE);
-                ESP_LOGI(SD_TAG, "%s", file_chunk);
+                // ESP_LOGI(SD_TAG, "%s", file_chunk);
 
                 int wlen = esp_http_client_write(client, (char*)file_chunk, bytes_read);
                 if (wlen < 0) {
                     ESP_LOGE(HTTP_TAG, "Write failed");
+                    return ESP_FAIL;
                 }
                 // Increment starting point to read next chunk
                 offset += bytes_read;
@@ -163,7 +167,7 @@ esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
     return ESP_OK;
 }
 
-esp_err_t HTTP_Class::uploadAACFile(const char* fileName)
+esp_err_t HTTP_Class::uploadAACFile(const char* url, const char* fileName)
 {
     esp_err_t err = ESP_OK;
 
@@ -210,13 +214,14 @@ esp_err_t HTTP_Class::uploadAACFile(const char* fileName)
         char response_buffer[MAX_HTTP_RESPONSE_BUFFER + 1] = {0};
         int content_length = 0;
         esp_http_client_config_t config = {
-            .url = HTTP_UPLOAD_URL,
+            .url = url,
+            // .port = 5000,
             .method = HTTP_METHOD_POST,
             .timeout_ms = (RECORD_DURATION + 200) * 1000,
             .disable_auto_redirect = true,
             .buffer_size = MAX_HTTP_RESPONSE_BUFFER,
             .buffer_size_tx = AAC_CODEC_BUFFER_SIZE,
-            .crt_bundle_attach = esp_crt_bundle_attach,
+            // .crt_bundle_attach = esp_crt_bundle_attach,
             // .transport_type = HTTP_TRANSPORT_OVER_SSL,  // Required for HTTPS
             .keep_alive_enable = true,
             .keep_alive_interval = 20
@@ -224,9 +229,21 @@ esp_err_t HTTP_Class::uploadAACFile(const char* fileName)
         esp_http_client_handle_t client = esp_http_client_init(&config);
 
         // Set HTTP header
-        // esp_http_client_set_header(client, "Dropbox-API-Arg", fullPath.c_str());
-        esp_http_client_set_header(client, "Content-Type", "application/octet-stream");
-        err = esp_http_client_open(client, file_size);
+        // Define boundary for multipart
+        const char* boundary = "----ESP32Boundary1234";
+        std::string body_start =
+            "--" + std::string(boundary) + "\r\n"
+            "Content-Disposition: form-data; name=\"file\"; filename=\"" + std::string(fileName) + "\"\r\n"
+            "Content-Type: application/octet-stream\r\n\r\n";
+
+        std::string body_end = "\r\n--" + std::string(boundary) + "--\r\n";
+        int total_length = body_start.length() + file_size + body_end.length();
+        
+        // Set multipart header
+        std::string content_type = "multipart/form-data; boundary=" + std::string(boundary);
+        esp_http_client_set_header(client, "Content-Type", content_type.c_str());
+        err = esp_http_client_open(client, total_length);
+        esp_http_client_write(client, body_start.c_str(), body_start.length());
         if (err != ESP_OK) {
             ESP_LOGE(HTTP_TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
             return ESP_FAIL;
@@ -257,6 +274,9 @@ esp_err_t HTTP_Class::uploadAACFile(const char* fileName)
             close(fd);
             free(in_buf);
             sdPath.clear();
+            
+            // Write the ending boundary
+            esp_http_client_write(client, body_end.c_str(), body_end.length());
 
             // Read server response
             content_length = esp_http_client_fetch_headers(client);

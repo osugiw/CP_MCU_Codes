@@ -51,8 +51,8 @@ static void upload_file_task(void *pvParameters)
     {
         if(xSemaphoreTake(sem_task, portMAX_DELAY) == pdPASS)
         {   
-            http_client.init(HTTP_ROOT_URL);
-            // http_client.send_post_request(HTTP_UPLOAD_FILE, SD_TEST_PATH);
+            // http_client.init(HTTP_ROOT_URL);
+            // http_client.send_post_request(HTTP_UPLOAD_URL, SD_TEST_PATH);
 
             // Upload if SD Card i mounted and WiFi is connected
             if(sd_mounted == ESP_OK && wifi.wifi_status() == WIFI_STATE_CONNECTED)
@@ -61,18 +61,18 @@ static void upload_file_task(void *pvParameters)
                 // Print files inside the directory for debugging
                 // sd_card.print_directory(listFile);
 
-//                 // Upload file when the SD Card isn't empty
-//                 if(listFile.size() != 0)
-//                 {   
-// #ifdef GENERATE_DUMMY_5KB_FILE
-//                     uploadStatus = http_client.send_post_request(HTTP_UPLOAD_URL, listFile[0].c_str());
-// #else
-//                     uploadStatus = http_client.uploadAACFile(listFile[0].c_str());
-// #endif   
-//                     if(uploadStatus == ESP_OK){
-//                         sd_card.remove_file(listFile[0].c_str());
-//                     }
-//                 }        
+                // Upload file when the SD Card isn't empty
+                if(listFile.size() != 0)
+                {   
+#ifdef GENERATE_DUMMY_5KB_FILE
+                    uploadStatus = http_client.send_post_request(HTTP_UPLOAD_URL, listFile[0].c_str());
+#else
+                    uploadStatus = http_client.uploadAACFile(HTTP_UPLOAD_URL, listFile[0].c_str());
+#endif   
+                    if(uploadStatus == ESP_OK){
+                        sd_card.remove_file(listFile[0].c_str());
+                    }
+                }        
 //                 // Trying to reconnect to the WiFi while still recording
 //                 else if(wifi.wifi_status() == WIFI_STATE_DISCONNECTED)
 //                 {

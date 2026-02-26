@@ -49,11 +49,12 @@ class HTTP_Class {
 
         /**
         *   @brief  Upload AAC Audio to the Dropbox drive
+        *   @param  url                 The URL to send the POST request to
         *   @param  fileName            SD Card file
         *   @return 
         *           Status of file uploading
         */
-       esp_err_t uploadAACFile(const char* fileName);
+       esp_err_t uploadAACFile(const char* url, const char* fileName);
 };
 
 
