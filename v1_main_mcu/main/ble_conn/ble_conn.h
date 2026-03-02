@@ -47,8 +47,8 @@ enum {
 
 /****************** Public Structs ******************/
 typedef enum {
-    BLE_STATE_OFF,
-    BLE_STATE_ON,
+    BLE_STATE_ADVERTISING,
+    BLE_STATE_NOT_ADVERTISING,
     
     // Init error states
     ERR_BLE_BT_CONTROLLER_INIT,
@@ -60,11 +60,8 @@ typedef enum {
     ERR_BLE_GATTS_APP_REGISTER,
     ERR_BLE_SET_LOCAL_MTU,
 
-    // Deinit error states
-    ERR_BLE_BLUEDROID_DISABLE,
-    ERR_BLE_BLUEDROID_DEINIT,
-    ERR_BLE_BT_CONTROLLER_DISABLE,
-    ERR_BLE_BT_CONTROLLER_DEINIT
+    // Advertising Status
+    STATE_BLE_
 } ble_state_t;
 
 typedef struct {
@@ -100,10 +97,16 @@ class ble_conn_class {
         ble_state_t ble_init(void);
 
         /**
-         * @brief Deinitialize BLE connection and GATT server
-         * @return BLE state after deinitialization
+         * @brief Start BLE advertising to allow clients to connect
+         * @return None
          */
-        ble_state_t ble_deinit(void);
+        void ble_start_advertising(void);
+
+        /**
+         * @brief Stop the BLE advertising to save power
+         * @return None
+         */
+        void ble_stop_advertising(void);
 };
 
 /* Global BLE state variable */

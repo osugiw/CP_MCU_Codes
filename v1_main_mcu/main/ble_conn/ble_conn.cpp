@@ -27,7 +27,7 @@ static prepare_type_env_t prepare_write_env;
 static uint8_t adv_config_done       = 0;
 
 // BLE State
-ble_state_t ble_state = BLE_STATE_OFF;
+ble_state_t ble_state = BLE_STATE_NOT_ADVERTISING;
 
 // Device Settings
 device_settings_t device_settings = {
@@ -508,41 +508,34 @@ ble_state_t ble_conn_class::ble_init()
 
     /// BLE State
     if (ret == ESP_OK)
-        ble_state = BLE_STATE_ON;
+        ble_state = BLE_STATE_ADVERTISING;
     return ble_state;
 }
 
-ble_state_t ble_conn_class::ble_deinit()
+
+void ble_conn_class::ble_start_advertising(void)
+{
+    esp_err_t ret = esp_ble_gap_start_advertising(&adv_params);
+    if (ret != ESP_OK){
+        ESP_LOGE(GATTS_TABLE_TAG, "Start advertising failed, error code = %x", ret);
+    }
+    else{
+        ble_state = BLE_STATE_ADVERTISING;
+        ESP_LOGI(GATTS_TABLE_TAG, "Start advertising successfully");
+    }
+}
+
+void ble_conn_class::ble_stop_advertising(void)
 {
     esp_err_t ret;
-    ret = esp_bluedroid_disable();
-    if (ret != ESP_OK) {
-        ble_state = ERR_BLE_BLUEDROID_DISABLE;
-        ESP_LOGE(GATTS_TABLE_TAG, "Failed to disable bluedroid: %s", esp_err_to_name(ret));
+    ret = esp_ble_gap_stop_advertising();
+    if (ret != ESP_OK){
+        ESP_LOGE(GATTS_TABLE_TAG, "Stop advertising failed, error code = %x", ret);
     }
-    
-    ret = esp_bluedroid_deinit();
-    if (ret != ESP_OK) {
-        ble_state = ERR_BLE_BLUEDROID_DEINIT;
-        ESP_LOGE(GATTS_TABLE_TAG, "Failed to deinit bluedroid: %s", esp_err_to_name(ret));
+    else{
+        ble_state = BLE_STATE_NOT_ADVERTISING;
+        ESP_LOGI(GATTS_TABLE_TAG, "Stop advertising successfully");
     }
-    
-    ret = esp_bt_controller_disable();
-    if (ret != ESP_OK) {
-        ble_state = ERR_BLE_BT_CONTROLLER_DISABLE;
-        ESP_LOGE(GATTS_TABLE_TAG, "Failed to disable bt controller: %s", esp_err_to_name(ret));
-    }
-    
-    ret = esp_bt_controller_deinit();
-    if (ret != ESP_OK) {
-        ble_state = ERR_BLE_BT_CONTROLLER_DEINIT;
-        ESP_LOGE(GATTS_TABLE_TAG, "Failed to deinit bt controller: %s", esp_err_to_name(ret));
-    }
-
-    /// BLE State
-    if (ret == ESP_OK)
-        ble_state = BLE_STATE_ON;
-    return ble_state;
 }
 
 #endif // ENABLE_BLE_TESTING

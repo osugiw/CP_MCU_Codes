@@ -62,22 +62,21 @@ typedef struct {
  *          For calculating DMA refer to this link:
  *          https://docs.espressif.com/projects/esp-idf/en/v5.4/esp32/api-reference/peripherals/i2s.html
  */
-#define I2S_SAMPLE_RATE                     48000
+#define I2S_SAMPLE_RATE                     16000
 #define I2S_BIT_SAMPLE                      16
 #define I2S_CHANNEL_DMA_FRAME_NUM           2046    //2046 x 2 = 4092 (ESP32 Limitation) -- the number of samples in one DMA buffer, which affects the frequency of DMA interrupts and the size of data processed in each interrupt. Larger value means less frequent interrupts and more data processed in each interrupt, but also means higher latency and more RAM usage.>
 #define I2S_CHANNEL_DMA_DESC_NUM            6
 #define I2S_CHANNEL_DMA_BUFFERS_SIZE        (((I2S_CHANNEL_DMA_FRAME_NUM + 2) * I2S_SLOT_MODE_MONO * I2S_BIT_SAMPLE) / 8)    // Must be <= 4092 (ESP32 Limitation)
 
 /*  AAC Codec & Buffer Config  */
-#define CODEC_BITRATE                       96000  // bps
+#define CODEC_BITRATE                       32000  // bps
 #define AUDIO_GAIN                          10.0f    // Gain factor for volume adjustment (e.g., 1.5 for 50% increase)   
 #define I2S_RECV_BUFFER_SIZE                (I2S_CHANNEL_DMA_DESC_NUM * I2S_CHANNEL_DMA_BUFFERS_SIZE)
 #define AAC_CODEC_BUFFER_SIZE               (I2S_CHANNEL_DMA_FRAME_NUM + 2)
 
 /*  Recording Config  */
-#define RECORD_DURATION         60          // In seconds  
-#define MIN_SPACE_LEFT          100          // In MB
-#define NUM_FILES_REMOVE        5
+#define RECORD_DURATION         600          // In seconds  
+#define MIN_SPACE_LEFT          100         // In MB
 
 #ifdef GENERATE_DUMMY_5KB_FILE
     #define FILE_EXTENSION          ".txt"
@@ -86,14 +85,14 @@ typedef struct {
 #endif
 
 // HTTP Client
-#define HTTP_ROOT_URL           "https://december-journals-alignment-representing.trycloudflare.com/"
+#define HTTP_ROOT_URL           "https://skin-everyone-montreal-frost.trycloudflare.com/"
 #define HTTP_UPLOAD_URL         "upload"
 
 // Debug TAGs
-static const char *SD_TAG = "SD_CARD";
-static const char *GATTS_TABLE_TAG = "BLE_XIAO_S3";
-static const char *WIFI_TAG = "WIFI_CONN";
-static const char *RECORD_TAG = "Recording";
+static const char *SD_TAG          = "SD_CARD";
+static const char *GATTS_TABLE_TAG = "BLE";
+static const char *WIFI_TAG        = "WIFI_CONN";
+static const char *RECORD_TAG      = "RECORDING";
 
 #ifdef __cplusplus
 }

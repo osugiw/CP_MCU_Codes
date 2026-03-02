@@ -2,10 +2,11 @@
  * This project is part of the Capstone Project
  * --------------------------------------------------------------------------
  * Author: Sugiarto Wibowo
- * Date: February 2026
+ * Date: March 2026
  * --------------------------------------------------------------------------
- * These codes perform read TXT file from SD Card and transmit the read data
- * over BLE using GATT server with notify property.
+ * The main system performs recording sound from a microphone and save it to the SD Card. It will transmit the oldest
+ * recording file to the server when the WiFi is connected. The file will be transmitted in AAC format. Additionally, 
+ * the system support BLE service for device configuration
  * 
  */
 
@@ -18,42 +19,34 @@
 #include "NTP.h"
 #include "esp_random.h"
 
-// BLE Instance
+/* Private Macros   */
+#define TASK_FIRST_PRIORITY    5
+#define TASK_SECOND_PRIORITY   3
+
+/*  Private Functions   */
+static void record_and_save_task(void *args);
+static void upload_file_task(void *args);
+
+/*  Private Variables   */
 #ifdef ENABLE_BLE_TESTING
-ble_conn_class ble_conn;
+ble_conn_class ble_conn;                 // BLE Instance
 #endif
-
 #ifdef ENABLE_WIFI_TESTING
-WIFI_Class wifi;
-HTTP_Class http_client;
+WIFI_Class wifi;            // WiFi Instance
+HTTP_Class http_client;     // HTTP Client Instance
 #endif
-
-// Mic i2s
-MIC_I2S mic;
-
-/*  FreeRTOS    */
-SemaphoreHandle_t sem_task;
-TaskHandle_t record_task_hdl;
-
-// #define TASK_1_RECORDING_BIT            1
-// #define TASK_2_WIFI_UPLOADING_BIT       2
-// #define TASK_3_BLE_ACTIVE_BIT           4
-// EventGroupHandle_t xEventGroup;
-
-// Private Variables
+static MIC_I2S mic;                        // Mic Instance
+static NTP ntp;                             // NTP Instance
+static SemaphoreHandle_t sem_task;         // Semaphore for task synchronization
 static esp_err_t uploadStatus = ESP_FAIL;
 
 #ifdef ENABLE_WIFI_TESTING
-NTP ntp;
 static void upload_file_task(void *pvParameters)
 {
     for(;;)
     {
         if(xSemaphoreTake(sem_task, portMAX_DELAY) == pdPASS)
         {   
-            // http_client.init(HTTP_ROOT_URL);
-            // http_client.send_post_request(HTTP_UPLOAD_URL, SD_TEST_PATH);
-
             // Upload if SD Card i mounted and WiFi is connected
             if(sd_mounted == ESP_OK && wifi.wifi_status() == WIFI_STATE_CONNECTED)
             {   
@@ -64,13 +57,9 @@ static void upload_file_task(void *pvParameters)
                 // Upload file when the SD Card isn't empty
                 if(listFile.size() != 0)
                 {   
-#ifdef GENERATE_DUMMY_5KB_FILE
-                    uploadStatus = http_client.send_post_request(HTTP_UPLOAD_URL, listFile[0]);
-#else
                     std::string url = HTTP_ROOT_URL;
                     url.append(HTTP_UPLOAD_URL);
                     uploadStatus = http_client.uploadAACFile(url.c_str(), listFile[0]);
-#endif   
                     if(uploadStatus == ESP_OK){
                         sd_card.remove_file(listFile[0].c_str());
                     }
@@ -81,71 +70,58 @@ static void upload_file_task(void *pvParameters)
                     wifi_retry_num = 0;
                     esp_wifi_connect();
                 }
-                xSemaphoreGive(sem_task);
             }
-            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            xSemaphoreGive(sem_task);
         }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 #endif
 
 /*  Task Record and Save    */
-void record_and_save_task(void *args)
+static void record_and_save_task(void *args)
 {
     std::string fileName;
     std::string currentDateTime;
     uint32_t randomName;
 
+    UBaseType_t uxHighWaterMark;
+    uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
+
     for(;;)
     {   
         if(xSemaphoreTake(sem_task, portMAX_DELAY) == pdPASS)
-        {   
-            // if(ulTaskNotifyTake(pdTRUE, portMAX_DELAY) > 0)
-            // {
-            //     xEventGroupSetBits(xEventGroup, TASK_1_RECORDING_BIT);
-                // If SD is mounted properly
-                if(sd_mounted == ESP_OK)
-                {
-                    fileName.clear();
-                    currentDateTime = ntp.currentDateTime();
+        {  
+            // If SD is mounted properly
+            if(sd_mounted == ESP_OK)
+            {
+                fileName.clear();
+                fileName.append("/sdcard/");
+                currentDateTime = ntp.currentDateTime();
 
-                    if(currentDateTime.empty())
-                    {
-                        randomName = esp_random();
-                        fileName.append("/sdcard/");
-                        fileName.append(std::to_string(randomName));
-                        fileName.append(FILE_EXTENSION);
-                        ntp.forceSync();    // Force to Sync the NTP
-                    }
-                    else 
-                    {
-                        fileName.append("/sdcard/");
-                        fileName.append(currentDateTime);
-                        fileName.append(FILE_EXTENSION);
-                        currentDateTime.clear();   // Clear currentDateTime
-                    }
-
-                    // Free up some space if the local storage size is low
-                    uint32_t free_space = sd_card.check_free_space(RECORD_DURATION);
-                    // if(free_space > MIN_SPACE_LEFT)
-                    // {
-#ifdef GENERATE_DUMMY_5KB_FILE
-                        // sd_card.generate_5kb_test_file(fileName.c_str());
-#else
-                        esp_err_t err = mic.i2s_record_audio_aac(RECORD_DURATION, fileName.c_str());
-#endif
-                    //     if(err != ESP_OK)
-                    //     {
-                    //         esp_restart();
-                    //     }
-                    // }
-                }
-                else
+                if(currentDateTime.empty())
                 {
-                    ESP_LOGE(RECORD_TAG, "Restart the ESP since SD was error");
-                    esp_restart();
+                    randomName = esp_random();
+                    fileName.append(std::to_string(randomName));
+                    fileName.append(FILE_EXTENSION);
+                    ntp.forceSync();    // Force to Sync the NTP
                 }
-            // }     
+                else 
+                {
+                    fileName.append(currentDateTime);
+                    fileName.append(FILE_EXTENSION);
+                    currentDateTime.clear();   // Clear currentDateTime
+                }
+
+                esp_err_t err = mic.i2s_record_audio_aac(RECORD_DURATION, fileName.c_str());
+                uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
+                ESP_LOGI(RECORD_TAG, "Task stack size: %d", uxHighWaterMark);
+            }
+            else
+            {
+                ESP_LOGE(RECORD_TAG, "Restart the ESP since SD was error");
+                esp_restart();
+            }
             xSemaphoreGive(sem_task);
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -181,76 +157,50 @@ extern "C" void app_main(void)
     }
 #endif
 
-    // Create the semaphore
-    sem_task = xSemaphoreCreateBinary();
-    xSemaphoreGive(sem_task);
-
-    /*  Record and Save Task  */
-    xTaskCreatePinnedToCore(
-        record_and_save_task,                   // Task code
-        "Record Audio Task",                    // Task name
-        8 * 1024,                               // Stack size
-        NULL,                                   // Parameter to be passed
-        5,                                      // Task Priority
-        NULL,                       // Task Handle
-        1                                       // Core number
-    );
-
-    // /*  Record and Save Task  */
-    // xTaskCreatePinnedToCore(
-    //     record_and_save_task,                   // Task code
-    //     "Record Audio Task",                    // Task name
-    //     8 * 1024,                               // Stack size
-    //     NULL,                                   // Parameter to be passed
-    //     5,                                      // Task Priority
-    //     &record_task_hdl,                       // Task Handle
-    //     1                                       // Core number
-    // );
-
-#ifdef ENABLE_WIFI_TESTING
-    // if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
-    // {
-    //      xTaskCreatePinnedToCore(
-    //         upload_file_task,                         // Task code
-    //         "HTTP Test Task",                       // Task name
-    //         8 * 1024,                               // Stack size
-    //         record_task_hdl,                        // Parameter to be passed
-    //         3,                                      // Task Priority
-    //         NULL,                                   // Task Handle
-    //         0                                       // Core number
-    //     );
-    // }
-
-    if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
-    {
-         xTaskCreatePinnedToCore(
-            upload_file_task,                         // Task code
-            "HTTP Test Task",                       // Task name
-            8 * 1024,                               // Stack size
-            NULL,                        // Parameter to be passed
-            3,                                      // Task Priority
-            NULL,                                   // Task Handle
-            0                                       // Core number
-        );
-    }
-#endif
-
-#ifdef ENABLE_BLE_TESTING
-    // Turn on BLE state
+#ifdef ENABLE_BLE_TESTING      
+   // Initialize BLE and GATT server
     ble_state = ble_conn.ble_init();
-    if(ble_state == BLE_STATE_ON){
+    if(ble_state == BLE_STATE_ADVERTISING){
         ESP_LOGI(GATTS_TABLE_TAG, "BLE initialized successfully");
     }
     else{
         ESP_LOGE(GATTS_TABLE_TAG, "Failed to initialize BLE");
     }
-    vTaskDelay(100 / portTICK_PERIOD_MS); // Delay to ensure BLE is initialized before WiFi
+    vTaskDelay(1000 / portTICK_PERIOD_MS);   // Delay to ensure BLE is properly initialized before starting the tasks
 #endif
+
+    // Create the semaphore
+    sem_task = xSemaphoreCreateBinary();
+    xSemaphoreGive(sem_task);
+
+#ifdef ENABLE_WIFI_TESTING
+    if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
+    {
+         xTaskCreatePinnedToCore(
+            upload_file_task,                       // Task code
+            "HTTP Test Task",                       // Task name
+            8 * 1024,                               // Stack size
+            NULL,                                   // Parameter to be passed
+            TASK_FIRST_PRIORITY,                    // Task Priority
+            NULL,                                   // Task Handle
+            1                                       // Core number
+        );
+    }
+#endif
+
+    /*  Record and Save Task  */
+    xTaskCreatePinnedToCore(
+        record_and_save_task,                   // Task code
+        "Record Audio Task",                    // Task name
+        14 * 1024,                              // Stack size
+        NULL,                                   // Parameter to be passed
+        TASK_SECOND_PRIORITY,                   // Task Priority
+        NULL,                                   // Task Handle
+        1                                       // Core number
+    );
 
     while (true)
     {
-        /* code */
-        // printf("Main task running...\n");
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
     
