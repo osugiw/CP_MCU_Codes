@@ -51,7 +51,7 @@ esp_err_t sd_card_class::remove_file(const char *fileName)
     // First check if file exists
     if (stat(filePath.c_str(), &st) == 0) {
         // Delete it if it exists
-        ESP_LOGI(SD_TAG, "Removing %s", filePath.c_str());
+        // ESP_LOGI(SD_TAG, "Removing %s", filePath.c_str());
         err = unlink(filePath.c_str()); 
         if(err != 0){
             ESP_LOGE(SD_TAG, "Failed to remove %s from the SD Card", filePath.c_str());

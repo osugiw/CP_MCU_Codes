@@ -15,7 +15,8 @@ void HTTP_Class::init(const char* url)
     esp_http_client_config_t config = {
         .url = url,
         .timeout_ms = 5000,
-        // .crt_bundle_attach = esp_crt_bundle_attach,
+        .transport_type = HTTP_TRANSPORT_OVER_SSL,  // Required for HTTPS
+        .crt_bundle_attach = esp_crt_bundle_attach,
         
     };
     
@@ -47,6 +48,8 @@ void HTTP_Class::send_get_request(const char* url)
     char output_buffer[MAX_HTTP_RESPONSE_BUFFER + 1] = {0};   // Buffer
     esp_http_client_config_t config = {
         .url = url,
+        .transport_type = HTTP_TRANSPORT_OVER_SSL,  // Required for HTTPS
+        .crt_bundle_attach = esp_crt_bundle_attach,
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_method(client, HTTP_METHOD_GET);
@@ -75,7 +78,7 @@ void HTTP_Class::send_get_request(const char* url)
 }
 
 
-esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
+esp_err_t HTTP_Class::send_post_request(const char* url, std::string fileName)
 {
     size_t offset = 0;
     int bytes_read = 0;
@@ -83,8 +86,7 @@ esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
     uint8_t file_chunk[MAX_SD_READ_SIZE] = {};
 
     // SD Card file path
-    std::string sdPath = "/sdcard/";
-    sdPath += fileName;
+    std::string sdPath = "/sdcard/" + fileName;
 
     uint32_t file_size = sd_card.check_file_size(sdPath.c_str());
     ESP_LOGI(HTTP_TAG, "Preparing to upload file %s of size %d bytes", sdPath.c_str(), file_size);
@@ -101,7 +103,7 @@ esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
     const char* boundary = "----ESP32Boundary1234";
     std::string body_start =
         "--" + std::string(boundary) + "\r\n"
-        "Content-Disposition: form-data; name=\"file\"; filename=\"" + std::string(fileName) + "\"\r\n"
+        "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n"
         "Content-Type: application/octet-stream\r\n\r\n";
 
     std::string body_end = "\r\n--" + std::string(boundary) + "--\r\n";
@@ -112,8 +114,10 @@ esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
         .url = url,
         .method = HTTP_METHOD_POST,
         .timeout_ms = 60000,
+        .transport_type = HTTP_TRANSPORT_OVER_SSL,  // Required for HTTPS
         .buffer_size = MAX_HTTP_RESPONSE_BUFFER,
-        .buffer_size_tx = MAX_SD_READ_SIZE
+        .buffer_size_tx = MAX_SD_READ_SIZE,
+        .crt_bundle_attach = esp_crt_bundle_attach,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -169,15 +173,21 @@ esp_err_t HTTP_Class::send_post_request(const char* url, const char* fileName)
     return ESP_OK;
 }
 
-esp_err_t HTTP_Class::uploadAACFile(const char* url, const char* fileName)
+esp_err_t HTTP_Class::uploadAACFile(const char* url, std::string fileName)
 {
     esp_err_t err = ESP_OK;
 
     // SD Card file path
     std::string sdPath;
     sdPath.clear();
-    sdPath.append("/sdcard/"); 
-    sdPath.append(fileName);
+    sdPath = "/sdcard/" + fileName;
+
+    // Check if the file is an AAC file
+    if(sdPath.find(".aac") == std::string::npos)
+    {
+        ESP_LOGE(HTTP_TAG, "File %s is not an AAC file", sdPath.c_str());
+        return ESP_FAIL;
+    }
 
     // SD Card things
     int fd;
@@ -217,14 +227,13 @@ esp_err_t HTTP_Class::uploadAACFile(const char* url, const char* fileName)
         int content_length = 0;
         esp_http_client_config_t config = {
             .url = url,
-            // .port = 5000,
             .method = HTTP_METHOD_POST,
             .timeout_ms = (RECORD_DURATION + 200) * 1000,
             .disable_auto_redirect = true,
+            .transport_type = HTTP_TRANSPORT_OVER_SSL,  // Required for HTTPS
             .buffer_size = MAX_HTTP_RESPONSE_BUFFER,
             .buffer_size_tx = AAC_CODEC_BUFFER_SIZE,
-            // .crt_bundle_attach = esp_crt_bundle_attach,
-            // .transport_type = HTTP_TRANSPORT_OVER_SSL,  // Required for HTTPS
+            .crt_bundle_attach = esp_crt_bundle_attach,
             .keep_alive_enable = true,
             .keep_alive_interval = 20
         };
@@ -235,7 +244,7 @@ esp_err_t HTTP_Class::uploadAACFile(const char* url, const char* fileName)
         const char* boundary = "----ESP32Boundary1234";
         std::string body_start =
             "--" + std::string(boundary) + "\r\n"
-            "Content-Disposition: form-data; name=\"file\"; filename=\"" + std::string(fileName) + "\"\r\n"
+            "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n"
             "Content-Type: application/octet-stream\r\n\r\n";
 
         std::string body_end = "\r\n--" + std::string(boundary) + "--\r\n";
@@ -270,7 +279,7 @@ esp_err_t HTTP_Class::uploadAACFile(const char* url, const char* fileName)
                         return ESP_FAIL;
                     }
                     read_size += chunkSize;
-                    ESP_LOGI(HTTP_TAG, "Transmitted data: %ld bytes", read_size);
+                    // ESP_LOGI(HTTP_TAG, "Transmitted data: %ld bytes", read_size);
                 }            
             } while(read_size < file_size);
             close(fd);

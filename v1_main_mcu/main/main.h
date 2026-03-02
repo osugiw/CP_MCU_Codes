@@ -75,7 +75,7 @@ typedef struct {
 #define AAC_CODEC_BUFFER_SIZE               (I2S_CHANNEL_DMA_FRAME_NUM + 2)
 
 /*  Recording Config  */
-#define RECORD_DURATION         10          // In seconds  
+#define RECORD_DURATION         60          // In seconds  
 #define MIN_SPACE_LEFT          100          // In MB
 #define NUM_FILES_REMOVE        5
 
@@ -86,9 +86,8 @@ typedef struct {
 #endif
 
 // HTTP Client
-#define HTTP_ENDPOINT           "http://httpbin.org"
-#define HTTP_ROOT_URL           "http://192.168.50.194:5000/"
-#define HTTP_UPLOAD_URL         "http://192.168.50.194:5000/upload"
+#define HTTP_ROOT_URL           "https://december-journals-alignment-representing.trycloudflare.com/"
+#define HTTP_UPLOAD_URL         "upload"
 
 // Debug TAGs
 static const char *SD_TAG = "SD_CARD";

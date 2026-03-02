@@ -180,7 +180,7 @@ esp_err_t MIC_I2S::i2s_record_audio_aac(uint32_t rec_time, const char* fileName)
     ESP_LOGI(RECORD_TAG, "Recording sound for %s", fileName);
 
     uint64_t start_time = esp_timer_get_time();
-    uint64_t record_end_time = start_time + (RECORD_DURATION * 1000000ULL);
+    uint64_t record_end_time = start_time + (rec_time * 1000000ULL);
     uint8_t audio_gain = AUDIO_GAIN;
     while (esp_timer_get_time() < record_end_time) {
         err = i2s_channel_read(rx_handle, audio_buffer, I2S_RECV_BUFFER_SIZE, &bytes_read, portMAX_DELAY);

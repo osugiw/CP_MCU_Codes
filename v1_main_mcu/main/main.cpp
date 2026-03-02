@@ -65,20 +65,22 @@ static void upload_file_task(void *pvParameters)
                 if(listFile.size() != 0)
                 {   
 #ifdef GENERATE_DUMMY_5KB_FILE
-                    uploadStatus = http_client.send_post_request(HTTP_UPLOAD_URL, listFile[0].c_str());
+                    uploadStatus = http_client.send_post_request(HTTP_UPLOAD_URL, listFile[0]);
 #else
-                    uploadStatus = http_client.uploadAACFile(HTTP_UPLOAD_URL, listFile[0].c_str());
+                    std::string url = HTTP_ROOT_URL;
+                    url.append(HTTP_UPLOAD_URL);
+                    uploadStatus = http_client.uploadAACFile(url.c_str(), listFile[0]);
 #endif   
                     if(uploadStatus == ESP_OK){
                         sd_card.remove_file(listFile[0].c_str());
                     }
                 }        
-//                 // Trying to reconnect to the WiFi while still recording
-//                 else if(wifi.wifi_status() == WIFI_STATE_DISCONNECTED)
-//                 {
-//                     wifi_retry_num = 0;
-//                     esp_wifi_connect();
-//                 }
+                // Trying to reconnect to the WiFi while still recording
+                else if(wifi.wifi_status() == WIFI_STATE_DISCONNECTED)
+                {
+                    wifi_retry_num = 0;
+                    esp_wifi_connect();
+                }
                 xSemaphoreGive(sem_task);
             }
             vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -125,9 +127,8 @@ void record_and_save_task(void *args)
 
                     // Free up some space if the local storage size is low
                     uint32_t free_space = sd_card.check_free_space(RECORD_DURATION);
-                    if(free_space > MIN_SPACE_LEFT)
-                    {
-                        ESP_LOGI(RECORD_TAG, "Recording is is in progress");
+                    // if(free_space > MIN_SPACE_LEFT)
+                    // {
 #ifdef GENERATE_DUMMY_5KB_FILE
                         // sd_card.generate_5kb_test_file(fileName.c_str());
 #else
@@ -137,7 +138,7 @@ void record_and_save_task(void *args)
                     //     {
                     //         esp_restart();
                     //     }
-                    }
+                    // }
                 }
                 else
                 {

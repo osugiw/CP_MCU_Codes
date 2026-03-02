@@ -45,16 +45,15 @@ class HTTP_Class {
          * @param  fileName The name of the file being uploaded (for logging purposes)
          * @return ESP_OK if successful, ESP_FAIL otherwise
          */
-        esp_err_t send_post_request(const char* url, const char* fileName);
+        esp_err_t send_post_request(const char* url, std::string fileName);
 
         /**
         *   @brief  Upload AAC Audio to the Dropbox drive
         *   @param  url                 The URL to send the POST request to
-        *   @param  fileName            SD Card file
-        *   @return 
-        *           Status of file uploading
+        *   @param  fileName            SD Card filename
+        *   @return ESP_OK if successful, ESP_FAIL otherwise
         */
-       esp_err_t uploadAACFile(const char* url, const char* fileName);
+       esp_err_t uploadAACFile(const char* url, std::string fileName);
 };
 
 
