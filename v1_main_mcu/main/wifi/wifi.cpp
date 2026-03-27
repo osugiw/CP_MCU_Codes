@@ -159,6 +159,6 @@ void WIFI_Class::disconnect(void)
 
 wifi_state_t WIFI_Class::wifi_status(void)
 {
-    ESP_LOGI(WIFI_TAG, "WiFi Connection Status is %d", wifi_state);
+    // ESP_LOGI(WIFI_TAG, "WiFi Connection Status is %d", wifi_state);
     return wifi_state;
 }

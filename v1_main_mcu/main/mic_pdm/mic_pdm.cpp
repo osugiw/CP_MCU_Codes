@@ -134,7 +134,6 @@ bool MIC_I2S::adjust_volume(int16_t *buffer, size_t samples, float scale) {
 
 esp_err_t MIC_I2S::i2s_record_audio_aac(uint32_t rec_time, const char* fileName)
 {
-    // Use POSIX and C standard library functions to work with files.
     esp_err_t err = ESP_OK;
     uint32_t flash_wr_size = 0;
     size_t bytes_read = 0;
@@ -168,17 +167,21 @@ esp_err_t MIC_I2S::i2s_record_audio_aac(uint32_t rec_time, const char* fileName)
     if(err != ESP_OK)
     {
         ESP_LOGI(RECORD_TAG, "Failed to open AAC Encoder");
+        esp_audio_enc_unregister(ESP_AUDIO_TYPE_AAC);
         return ESP_FAIL;
     }
 
     // Creating a file
-    int fd = open(fileName, O_RDWR | O_CREAT | O_TRUNC, 0);
+    std::string filePath = "/sdcard/" + std::string(fileName) + ".aac";
+    ESP_LOGI(RECORD_TAG, "Recording sound for %s", filePath.c_str());
+    int fd = open(filePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0);
     if (fd < 0) {
         ESP_LOGE(RECORD_TAG, "Failed to open file for writing - %d", errno);
+        esp_audio_enc_close(encoder);
+        esp_audio_enc_unregister(ESP_AUDIO_TYPE_AAC);
         return ESP_FAIL;
     }
-    ESP_LOGI(RECORD_TAG, "Recording sound for %s", fileName);
-
+    
     uint64_t start_time = esp_timer_get_time();
     uint64_t record_end_time = start_time + (rec_time * 1000000ULL);
     uint8_t audio_gain = AUDIO_GAIN;

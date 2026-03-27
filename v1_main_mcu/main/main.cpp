@@ -20,12 +20,8 @@
 #include "esp_random.h"
 
 /* Private Macros   */
-#define TASK_FIRST_PRIORITY    5
-#define TASK_SECOND_PRIORITY   3
-
-/*  Private Functions   */
-static void record_and_save_task(void *args);
-static void upload_file_task(void *args);
+#define TASK_FIRST_PRIORITY    12
+#define TASK_SECOND_PRIORITY   10
 
 /*  Private Variables   */
 #ifdef ENABLE_BLE_TESTING
@@ -37,11 +33,11 @@ HTTP_Class http_client;     // HTTP Client Instance
 #endif
 static MIC_I2S mic;                        // Mic Instance
 static NTP ntp;                             // NTP Instance
-static SemaphoreHandle_t sem_task;         // Semaphore for task synchronization
 static esp_err_t uploadStatus = ESP_FAIL;
+SemaphoreHandle_t sem_task;         // Semaphore for task synchronization
 
 #ifdef ENABLE_WIFI_TESTING
-static void upload_file_task(void *pvParameters)
+void upload_file_task(void *pvParameters)
 {
     for(;;)
     {
@@ -60,7 +56,7 @@ static void upload_file_task(void *pvParameters)
                     std::string url = HTTP_ROOT_URL;
                     url.append(HTTP_UPLOAD_URL);
                     uploadStatus = http_client.uploadAACFile(url.c_str(), listFile[0]);
-                    if(uploadStatus == ESP_OK){
+                    if(uploadStatus == ESP_OK || uploadStatus == ESP_ERR_NOT_SUPPORTED){
                         sd_card.remove_file(listFile[0].c_str());
                     }
                 }        
@@ -79,14 +75,14 @@ static void upload_file_task(void *pvParameters)
 #endif
 
 /*  Task Record and Save    */
-static void record_and_save_task(void *args)
+void record_and_save_task(void *args)
 {
     std::string fileName;
     std::string currentDateTime;
     uint32_t randomName;
 
-    UBaseType_t uxHighWaterMark;
-    uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
+    // UBaseType_t uxHighWaterMark;
+    // uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
 
     for(;;)
     {   
@@ -96,26 +92,17 @@ static void record_and_save_task(void *args)
             if(sd_mounted == ESP_OK)
             {
                 fileName.clear();
-                fileName.append("/sdcard/");
                 currentDateTime = ntp.currentDateTime();
 
-                if(currentDateTime.empty())
-                {
-                    randomName = esp_random();
-                    fileName.append(std::to_string(randomName));
-                    fileName.append(FILE_EXTENSION);
-                    ntp.forceSync();    // Force to Sync the NTP
-                }
+                if(currentDateTime.empty() || currentDateTime.substr(0, 10) == "1970_01-01")
+                    fileName = std::to_string(esp_random());
                 else 
-                {
-                    fileName.append(currentDateTime);
-                    fileName.append(FILE_EXTENSION);
-                    currentDateTime.clear();   // Clear currentDateTime
-                }
+                    fileName = currentDateTime;
 
                 esp_err_t err = mic.i2s_record_audio_aac(RECORD_DURATION, fileName.c_str());
-                uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
-                ESP_LOGI(RECORD_TAG, "Task stack size: %d", uxHighWaterMark);
+
+                // uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
+                // ESP_LOGI(RECORD_TAG, "Task stack size: %d", uxHighWaterMark);
             }
             else
             {
@@ -153,7 +140,7 @@ extern "C" void app_main(void)
     if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
     {
         ntp.initialize();
-        ntp.getSyncStatus();
+        // ntp.getSyncStatus();
     }
 #endif
 
@@ -173,6 +160,17 @@ extern "C" void app_main(void)
     sem_task = xSemaphoreCreateBinary();
     xSemaphoreGive(sem_task);
 
+    /*  Record and Save Task  */
+    xTaskCreatePinnedToCore(
+        record_and_save_task,                   // Task code
+        "Record Audio Task",                    // Task name
+        14 * 1024,                              // Stack size
+        NULL,                                   // Parameter to be passed
+        TASK_FIRST_PRIORITY,                                     // Task Priority
+        NULL,                                   // Task Handle
+        1                                       // 0: WiFi/BLE, 1: Apps
+    );
+
 #ifdef ENABLE_WIFI_TESTING
     if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
     {
@@ -181,23 +179,12 @@ extern "C" void app_main(void)
             "HTTP Test Task",                       // Task name
             8 * 1024,                               // Stack size
             NULL,                                   // Parameter to be passed
-            TASK_FIRST_PRIORITY,                    // Task Priority
+            TASK_SECOND_PRIORITY,                                     // Task Priority
             NULL,                                   // Task Handle
-            1                                       // Core number
+            0                                       // 0: WiFi/BLE, 1: Apps
         );
     }
 #endif
-
-    /*  Record and Save Task  */
-    xTaskCreatePinnedToCore(
-        record_and_save_task,                   // Task code
-        "Record Audio Task",                    // Task name
-        14 * 1024,                              // Stack size
-        NULL,                                   // Parameter to be passed
-        TASK_SECOND_PRIORITY,                   // Task Priority
-        NULL,                                   // Task Handle
-        1                                       // Core number
-    );
 
     while (true)
     {

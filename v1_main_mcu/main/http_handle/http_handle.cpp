@@ -183,10 +183,10 @@ esp_err_t HTTP_Class::uploadAACFile(const char* url, std::string fileName)
     sdPath = "/sdcard/" + fileName;
 
     // Check if the file is an AAC file
-    if(sdPath.find(".aac") == std::string::npos)
+    if(sdPath.find(".aac") == std::string::npos && sdPath.find(".AAC") == std::string::npos)
     {
         ESP_LOGE(HTTP_TAG, "File %s is not an AAC file", sdPath.c_str());
-        return ESP_FAIL;
+        return ESP_ERR_NOT_SUPPORTED;
     }
 
     // SD Card things

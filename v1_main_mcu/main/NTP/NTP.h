@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 /*  NTP Config  */
-#define MAX_SYNC_RETRY      20
+#define MAX_SYNC_RETRY      5
 #define NTP_SERVER1         "0.us.pool.ntp.org"
 #define NTP_SERVER2         "pool.ntp.org"
 #define CHICAGO_TZ          "CST6CDT,M3.2.0,M11.1.0"   // Check the following csv to see your timezone https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
