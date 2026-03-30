@@ -20,6 +20,12 @@
 extern "C" {
 #endif
 
+/****************** Public Enum ******************/
+typedef enum {
+    SYSTEM_OFF = 0,
+    SYSTEM_ON
+} sys_enum_t;
+
 /****************** Public Struct ******************/
 typedef struct {
     char*       device_name;
@@ -40,13 +46,14 @@ typedef struct {
 #define SAMPLE_DEVICE_NAME         "WEARABLE_PHI"
 
 // WiFi Parameters
-#define WIFI_SSID                   "ASUS"
+#define WIFI_SSID                   "OSW"
 #define WIFI_PASSWORD               "brkbrkbrkb09"
 
 // SD Card Paremeters
 #define MAX_SD_READ_SIZE            512
 #define SD_TEST_PATH                "/sdcard/test.txt"
 
+/* IOs */
 //  SD Pin assignments
 #define PIN_NUM_CS              GPIO_NUM_21      // D2/A2 
 #define PIN_NUM_SCLK            GPIO_NUM_7      // D8/A8
@@ -56,6 +63,10 @@ typedef struct {
 // PDM Mic Parameters
 #define GPIO_I2S_DATA_IO        GPIO_NUM_41     // I2S data in io number
 #define GPIO_I2S_CLK_IO         GPIO_NUM_42     // I2S bit clock io number
+
+// Button Parameters
+#define PIN_ONOFF_BT                GPIO_NUM_1     // Button io number
+#define DEBOUNCE_DELAY              20              // Debounce delay in milliseconds
 
 /**
  * @brief   I2S Microphone configuration
@@ -93,6 +104,7 @@ static const char *SD_TAG          = "SD_CARD";
 static const char *GATTS_TABLE_TAG = "BLE";
 static const char *WIFI_TAG        = "WIFI_CONN";
 static const char *RECORD_TAG      = "RECORDING";
+static const char *MAIN_TAG        = "MAIN";
 
 #ifdef __cplusplus
 }

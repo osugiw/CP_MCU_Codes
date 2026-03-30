@@ -11,6 +11,7 @@
  */
 
 #include "main.h"
+#include "buttons.h"
 #include "ble_conn.h"
 #include "wifi.h"
 #include "http_handle.h"
@@ -35,6 +36,10 @@ static MIC_I2S mic;                        // Mic Instance
 static NTP ntp;                             // NTP Instance
 static esp_err_t uploadStatus = ESP_FAIL;
 SemaphoreHandle_t sem_task;         // Semaphore for task synchronization
+
+// ------------------ Button States
+bt_state_t bt_state = {BT_RELEASED, BT_RELEASED, BT_RELEASED, 0};
+sys_enum_t sys_state = SYSTEM_OFF;
 
 #ifdef ENABLE_WIFI_TESTING
 void upload_file_task(void *pvParameters)
@@ -94,7 +99,7 @@ void record_and_save_task(void *args)
                 fileName.clear();
                 currentDateTime = ntp.currentDateTime();
 
-                if(currentDateTime.empty() || currentDateTime.substr(0, 10) == "1970_01-01")
+                if(currentDateTime.empty() || currentDateTime.substr(0, 10) == "1970-01-01")
                     fileName = std::to_string(esp_random());
                 else 
                     fileName = currentDateTime;
@@ -118,6 +123,9 @@ void record_and_save_task(void *args)
 extern "C" void app_main(void)
 {
     esp_err_t ret;
+
+    // Initialize the button
+    init_button(PIN_ONOFF_BT);
 
     // Initialize SD Card
     sd_mounted = sd_card.initialize();
@@ -166,7 +174,7 @@ extern "C" void app_main(void)
         "Record Audio Task",                    // Task name
         14 * 1024,                              // Stack size
         NULL,                                   // Parameter to be passed
-        TASK_FIRST_PRIORITY,                                     // Task Priority
+        TASK_FIRST_PRIORITY,                    // Task Priority
         NULL,                                   // Task Handle
         1                                       // 0: WiFi/BLE, 1: Apps
     );
@@ -179,16 +187,31 @@ extern "C" void app_main(void)
             "HTTP Test Task",                       // Task name
             8 * 1024,                               // Stack size
             NULL,                                   // Parameter to be passed
-            TASK_SECOND_PRIORITY,                                     // Task Priority
+            TASK_SECOND_PRIORITY,                   // Task Priority
             NULL,                                   // Task Handle
             0                                       // 0: WiFi/BLE, 1: Apps
         );
     }
 #endif
 
+    ESP_LOGI(MAIN_TAG, "Initialization complete. Entering standby mode...");
     while (true)
     {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        bt_enum_t pwr_bt_state =  button_task(&bt_state, PIN_ONOFF_BT);
+        if(pwr_bt_state == BT_PRESSED)
+        {
+            if(sys_state == SYSTEM_OFF)
+            {
+                sys_state = SYSTEM_ON;
+                ESP_LOGI(MAIN_TAG, "System turned ON");
+            }
+            else if(sys_state == SYSTEM_ON)
+            {
+                sys_state = SYSTEM_OFF;
+                ESP_LOGI(MAIN_TAG, "System turned OFF");
+            }
+        }
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
     
 }

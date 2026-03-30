@@ -15,6 +15,7 @@ idf_component_register(
                 "./http_handle"
                 "./mic_pdm"
                 "./NTP"
+                "./buttons"
     SRC_DIRS     
                 "."
                 "./sd_card"
@@ -23,6 +24,7 @@ idf_component_register(
                 "./http_handle"
                 "./mic_pdm"
                 "./NTP"
+                "./buttons"
 )
 
 target_compile_options(
