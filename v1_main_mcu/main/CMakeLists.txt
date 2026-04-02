@@ -16,6 +16,7 @@ idf_component_register(
                 "./mic_pdm"
                 "./NTP"
                 "./buttons"
+                "./led"
     SRC_DIRS     
                 "."
                 "./sd_card"
@@ -25,6 +26,7 @@ idf_component_register(
                 "./mic_pdm"
                 "./NTP"
                 "./buttons"
+                "./led"
 )
 
 target_compile_options(

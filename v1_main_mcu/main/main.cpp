@@ -11,6 +11,7 @@
  */
 
 #include "main.h"
+#include "led.h"
 #include "buttons.h"
 #include "ble_conn.h"
 #include "wifi.h"
@@ -127,8 +128,9 @@ extern "C" void app_main(void)
 {
     esp_err_t ret;
 
-    // Initialize the button
+    // Initialize the button and LED
     init_button(PIN_ONOFF_BT);
+    led_init(PIN_LED);
 
     // Initialize SD Card
     sd_mounted = sd_card.initialize();
@@ -203,13 +205,17 @@ extern "C" void app_main(void)
         bt_enum_t pwr_bt_state =  button_task(&bt_state, PIN_ONOFF_BT);
         if(pwr_bt_state == BT_PRESSED)
         {
+            // Turn on when system is off
             if(sys_state == SYSTEM_OFF)
             {
+                led_set_state(PIN_LED, LED_ON);
                 sys_state = SYSTEM_ON;
                 ESP_LOGI(MAIN_TAG, "System turned ON");
             }
+            // Turn off when system is on
             else if(sys_state == SYSTEM_ON)
             {
+                led_set_state(PIN_LED, LED_OFF);
                 sys_state = SYSTEM_OFF;
                 ESP_LOGI(MAIN_TAG, "System turned OFF");
                 mic.i2s_force_stop_recording();

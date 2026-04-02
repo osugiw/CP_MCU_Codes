@@ -64,8 +64,9 @@ typedef struct {
 #define GPIO_I2S_DATA_IO        GPIO_NUM_41     // I2S data in io number
 #define GPIO_I2S_CLK_IO         GPIO_NUM_42     // I2S bit clock io number
 
-// Button Parameters
+// Button & LED Parameters
 #define PIN_ONOFF_BT                GPIO_NUM_1     // Button io number
+#define PIN_LED                     GPIO_NUM_2     // LED io number
 #define DEBOUNCE_DELAY              20              // Debounce delay in milliseconds
 
 /**
