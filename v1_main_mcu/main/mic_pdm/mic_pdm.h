@@ -43,6 +43,9 @@ typedef struct {
 
 /*  MIC Class    */
 class MIC_I2S{
+    private:
+        bool force_stop = false; // Flag to indicate if recording should be forcefully stopped
+
     public:
         /**
         *   @brief  Class constructor for MIC I2S
@@ -89,6 +92,11 @@ class MIC_I2S{
         *           Status code
         */
         esp_err_t i2s_record_audio_aac(uint32_t rec_time, const char* fileName);
+
+        /**
+         *  @brief  Force stop the ongoing audio recording and save
+         */
+        void i2s_force_stop_recording(void);
 
         /**
         *   @brief  Read a AAC file from the SD Card

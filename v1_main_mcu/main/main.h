@@ -46,7 +46,7 @@ typedef struct {
 #define SAMPLE_DEVICE_NAME         "WEARABLE_PHI"
 
 // WiFi Parameters
-#define WIFI_SSID                   "OSW"
+#define WIFI_SSID                   "ASUS"
 #define WIFI_PASSWORD               "brkbrkbrkb09"
 
 // SD Card Paremeters
@@ -86,7 +86,7 @@ typedef struct {
 #define AAC_CODEC_BUFFER_SIZE               (I2S_CHANNEL_DMA_FRAME_NUM + 2)
 
 /*  Recording Config  */
-#define RECORD_DURATION         300          // In seconds  
+#define RECORD_DURATION         60          // In seconds  
 #define MIN_SPACE_LEFT          100         // In MB
 
 #ifdef GENERATE_DUMMY_5KB_FILE
@@ -96,7 +96,7 @@ typedef struct {
 #endif
 
 // HTTP Client
-#define HTTP_ROOT_URL           "https://permalink-picking-deal-cartoons.trycloudflare.com/"
+#define HTTP_ROOT_URL           "https://inkjet-cgi-transcription-financial.trycloudflare.com/"
 #define HTTP_UPLOAD_URL         "upload"
 
 // Debug TAGs

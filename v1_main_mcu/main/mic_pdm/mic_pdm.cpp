@@ -138,6 +138,7 @@ esp_err_t MIC_I2S::i2s_record_audio_aac(uint32_t rec_time, const char* fileName)
     uint32_t flash_wr_size = 0;
     size_t bytes_read = 0;
     uint32_t flash_rec_time = (CODEC_BITRATE * rec_time) / 8;
+    force_stop = false; // Reset the force stop flag at the beginning of recording
 
     // Register AAC Encoder
     err = esp_aac_enc_register();                     
@@ -185,24 +186,29 @@ esp_err_t MIC_I2S::i2s_record_audio_aac(uint32_t rec_time, const char* fileName)
     uint64_t start_time = esp_timer_get_time();
     uint64_t record_end_time = start_time + (rec_time * 1000000ULL);
     uint8_t audio_gain = AUDIO_GAIN;
-    while (esp_timer_get_time() < record_end_time) {
+    while (!force_stop && (esp_timer_get_time() < record_end_time)) 
+    {
         err = i2s_channel_read(rx_handle, audio_buffer, I2S_RECV_BUFFER_SIZE, &bytes_read, portMAX_DELAY);
         bool isClipped = adjust_volume((int16_t*)audio_buffer, bytes_read / 2, audio_gain); // Example: 1.5x gain
         
-        if(isClipped) {
+        if(isClipped) 
+        {
             audio_gain -= 10; // Reduce gain slightly for the next chunk
             if (audio_gain < 10) audio_gain = 10; // Don't go below original volume
             ESP_LOGW("AUDIO", "Clipping detected! Reducing gain to %d", audio_gain);
         }
-        if(err == ESP_OK && bytes_read > 0) {
+        if(err == ESP_OK && bytes_read > 0) 
+        {
             for (int offset = 0; offset + AAC_CODEC_BUFFER_SIZE <= bytes_read; offset += AAC_CODEC_BUFFER_SIZE) 
             { 
-                esp_audio_enc_in_frame_t in_frame = {
+                esp_audio_enc_in_frame_t in_frame = 
+                {
                     .buffer = audio_buffer + offset,
                     .len = AAC_CODEC_BUFFER_SIZE,
                 };
 
-                esp_audio_enc_out_frame_t out_frame = {
+                esp_audio_enc_out_frame_t out_frame = 
+                {
                     .buffer = fileWrite_buffer,
                     .len = AAC_CODEC_BUFFER_SIZE,
                 };
@@ -223,6 +229,12 @@ esp_err_t MIC_I2S::i2s_record_audio_aac(uint32_t rec_time, const char* fileName)
     close(fd);
     ESP_LOGI(RECORD_TAG,"File written on SDCard with size %d", flash_wr_size);
     return ESP_OK;
+}
+
+void MIC_I2S::i2s_force_stop_recording(void)
+{
+    force_stop = true;
+    ESP_LOGI(RECORD_TAG, "Force stop recording triggered");
 }
 
 esp_err_t MIC_I2S::i2s_read_aac_file(const char *fileName)

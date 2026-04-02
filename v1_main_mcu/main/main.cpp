@@ -60,7 +60,7 @@ void upload_file_task(void *pvParameters)
                 {   
                     std::string url = HTTP_ROOT_URL;
                     url.append(HTTP_UPLOAD_URL);
-                    uploadStatus = http_client.uploadAACFile(url.c_str(), listFile[0]);
+                    // uploadStatus = http_client.uploadAACFile(url.c_str(), listFile[0]);
                     if(uploadStatus == ESP_OK || uploadStatus == ESP_ERR_NOT_SUPPORTED){
                         sd_card.remove_file(listFile[0].c_str());
                     }
@@ -93,26 +93,29 @@ void record_and_save_task(void *args)
     {   
         if(xSemaphoreTake(sem_task, portMAX_DELAY) == pdPASS)
         {  
-            // If SD is mounted properly
-            if(sd_mounted == ESP_OK)
+            // Record and save if the system is ON
+            if(sys_state == SYSTEM_ON)
             {
-                fileName.clear();
-                currentDateTime = ntp.currentDateTime();
+                if(sd_mounted == ESP_OK)
+                {
+                    fileName.clear();
+                    currentDateTime = ntp.currentDateTime();
 
-                if(currentDateTime.empty() || currentDateTime.substr(0, 10) == "1970-01-01")
-                    fileName = std::to_string(esp_random());
-                else 
-                    fileName = currentDateTime;
+                    if(currentDateTime.empty() || currentDateTime.substr(0, 10) == "1970-01-01")
+                        fileName = std::to_string(esp_random());
+                    else 
+                        fileName = currentDateTime;
 
-                esp_err_t err = mic.i2s_record_audio_aac(RECORD_DURATION, fileName.c_str());
+                    esp_err_t err = mic.i2s_record_audio_aac(RECORD_DURATION, fileName.c_str());
 
-                // uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
-                // ESP_LOGI(RECORD_TAG, "Task stack size: %d", uxHighWaterMark);
-            }
-            else
-            {
-                ESP_LOGE(RECORD_TAG, "Restart the ESP since SD was error");
-                esp_restart();
+                    // uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
+                    // ESP_LOGI(RECORD_TAG, "Task stack size: %d", uxHighWaterMark);
+                }
+                else
+                {
+                    ESP_LOGE(RECORD_TAG, "Restart the ESP since SD was error");
+                    esp_restart();
+                }
             }
             xSemaphoreGive(sem_task);
         }
@@ -209,6 +212,7 @@ extern "C" void app_main(void)
             {
                 sys_state = SYSTEM_OFF;
                 ESP_LOGI(MAIN_TAG, "System turned OFF");
+                mic.i2s_force_stop_recording();
             }
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);
