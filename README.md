@@ -1,11 +1,9 @@
 # MCU docs
-
 Status: In development
 Assign: Sugiarto Wibowo, clawchuck s
 Team: Documentation
 
 # Sally: Wearable Device
-
 <table border="0">
   <tr>
     <td width="50%" align="center">
@@ -20,17 +18,14 @@ Team: Documentation
 This project is a core component of the [cp_wearable_ai](https://github.com/osugiw/cp_wearable_ai.git) ecosystem. We are building a robust, everyday wearable designed to augment daily life by merging continuous audio intelligence with real-time biometric insights.
 
 ## 🚀 The Vision
-
 Our goal is to provide a seamless "second brain" that lives as your necklace. By integrating continuous audio capture with biometric monitoring, the device doesn't just listen—it understands the physical and social context of your day to provide proactive support.
 
 ---
 
 ## 🛠️ How It Works
-
 The system firmware is built on **FreeRTOS**, utilizing binary semaphores to synchronize high-priority hardware tasks and ensure reliable real-time performance.
 
 **🔄 Execution Flow**
-
 1. **Initialization:** Upon boot, the device configures the digital microphone, SD card interface, and wireless (Wi-Fi/BLE) peripherals.
 2. **Transmission Priority:** The system checks the SD card for buffered audio. It attempts to upload files to the central server via Wi-Fi.
     1. *Data Integrity:* Files are only purged from local storage after a successful **server acknowledgment** is received.
@@ -54,15 +49,12 @@ To balance audio clarity with low-power transmission, the device uses the follow
 ---
 
 ## ✨ Key Features
-
 - **Low-Power Design:** Optimized hardware for all-day wearable use.
 - **Biometric Integration:** Syncs audio data with heart rate or other vitals for holistic life-tracking.
 - **Actionable Insights:** Converts hours of conversation into high-value summaries and tasks.
 
 ## 📋 Tech Stack
-
 ### **Hardware**
-
 **🧠 Processing & Connectivity**
 
 - **MCU:** ESP32-S3 (Xtensa® 32-bit LX7 dual-core processor).
@@ -85,17 +77,14 @@ We are currently integrating a multi-modal health sensor to provide continuous t
 ![EM_HW.png](MCU%20docs/EM_HW.png)
 
 ### Software
-
 The wearable software is built using the **Espressif IoT Development Framework (ESP-IDF)**, ensuring optimized performance for the ESP32-S3. The system leverages several specialized libraries to manage audio, storage, and networking:
 
 ### 🎙️ Audio & Storage Management
-
 - **FatFS:** Manages file system operations for reading from and writing audio recordings to the microSD card.
 - **SNTP (Simple Network Time Protocol):** Synchronizes timestamps via the network to ensure accurate, time-stamped file naming for all recordings.
 - **ESP Audio Codec:** Handles the real-time conversion and encoding of **Pulse Density Modulation (PDM)** data from the digital microphone into **Advanced Audio Coding (AAC)** format.
 
 ### 🌐 Wireless Networking
-
 - **lwIP (Lightweight IP):** Manages the TCP/IP stack for robust network connectivity.
 - **ESP HTTP Client:** Facilitates secure and efficient communication with the central Raspberry Pi server.
 - **Bluedroid:** Powers the Bluetooth peripheral stack, enabling the device to communicate with the mobile application for configuration.
@@ -103,7 +92,6 @@ The wearable software is built using the **Espressif IoT Development Framework (
 ---
 
 ### 🛠️ Development Environment
-
 - **Framework:** ESP-IDF (v5.x recommended)
 - **RTOS:** FreeRTOS (Integrated with ESP-IDF)
 - **Language:** C/C++
@@ -113,34 +101,31 @@ The wearable software is built using the **Espressif IoT Development Framework (
 ---
 
 ## 🏗️ Getting Started
-
 ### Prerequisites
-
 - A configured Raspberry Pi server (see [Server Setup Guide](https://www.google.com/search?q=%23)).
 - Compatible wearable hardware.
 - ESP-IDF v5.x
 
 ### Installation
-
 ```jsx
 git clone https://github.com/osugiw/CP_MCU_Codes.git
 cd [your-repo-name]
 ```
 
 ### Configuration
-
 Some configuration needs to be changed before the software can run. Change the WiFi SSID and Password to your network, it can be changed in **main.h**
 
 ![image.png](MCU%20docs/image.png)
 
 ### Compile and Flash
-
 Make sure to choose ESP32S3 as the target device and click build project.
-
 ![image.png](MCU%20docs/image%201.png)
-
 Upon successful built, plug your Hardware and click flash device.
 
 ### Monitor/Debug
-
 Click monitor to see device output and see the debug messages.
+
+# Acknowledgement
+- Prof. Nakul Garg as our supervisor
+- Prof. Joe Young as Capstone Project management
+- Electrical and Computer Engineering in Rice University
