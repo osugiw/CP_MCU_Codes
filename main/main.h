@@ -65,9 +65,9 @@ typedef struct {
 #define GPIO_I2S_CLK_IO         GPIO_NUM_42     // I2S bit clock io number
 
 // Button & LED Parameters
-#define PIN_ONOFF_BT                GPIO_NUM_1     // Button io number
-#define PIN_LED                     GPIO_NUM_2     // LED io number
-#define DEBOUNCE_DELAY              20              // Debounce delay in milliseconds
+#define PIN_ONOFF_BT                GPIO_NUM_6     // Button - D5
+#define PIN_LED                     GPIO_NUM_5     // LED - D4
+#define DEBOUNCE_DELAY              20             // Debounce delay in milliseconds
 
 /**
  * @brief   I2S Microphone configuration

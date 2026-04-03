@@ -1,49 +1,146 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-S3 |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- |
+# MCU docs
 
-# ESP-IDF Gatt Server Service Table Example
+Status: In development
+Assign: Sugiarto Wibowo, clawchuck s
+Team: Documentation
 
-This example shows how to create a GATT service with an attribute table defined in one place. Provided API releases the user from adding attributes one by one as implemented in BLUEDROID. A demo of the other method to create the attribute table is presented in [gatt_server_demo](../gatt_server).
+# Sally: Wearable Device
 
-Please, check this [tutorial](tutorial/Gatt_Server_Service_Table_Example_Walkthrough.md) for more information about this example.
+<table border="0">
+  <tr>
+    <td width="50%" align="center">
+      <img src="MCU%20docs/sally_logo.svg" width="50%" alt="Sally Logo">
+    </td>
+    <td width="50%" align="center">
+      <img src="MCU%20docs/RiceStackedHoriz_Blue.png" width="70%" alt="Rice Logo">
+    </td>
+  </tr>
+</table>
 
-## How to Use Example
+This project is a core component of the [cp_wearable_ai](https://github.com/osugiw/cp_wearable_ai.git) ecosystem. We are building a robust, everyday wearable designed to augment daily life by merging continuous audio intelligence with real-time biometric insights.
 
-Before project configuration and build, be sure to set the correct chip target using:
+## 🚀 The Vision
 
-```bash
-idf.py set-target <chip_name>
+Our goal is to provide a seamless "second brain" that lives as your necklace. By integrating continuous audio capture with biometric monitoring, the device doesn't just listen—it understands the physical and social context of your day to provide proactive support.
+
+---
+
+## 🛠️ How It Works
+
+The system firmware is built on **FreeRTOS**, utilizing binary semaphores to synchronize high-priority hardware tasks and ensure reliable real-time performance.
+
+**🔄 Execution Flow**
+
+1. **Initialization:** Upon boot, the device configures the digital microphone, SD card interface, and wireless (Wi-Fi/BLE) peripherals.
+2. **Transmission Priority:** The system checks the SD card for buffered audio. It attempts to upload files to the central server via Wi-Fi.
+    1. *Data Integrity:* Files are only purged from local storage after a successful **server acknowledgment** is received.
+3. **Interrupt Monitoring:** The system listens for user input via the tactile button array.
+    1. **Configuration Mode:** Triggered via button interrupt; allows settings updates from the mobile app via **BLE.**
+    2. **Recording Mode:** The default state if no interrupt is detected.
+
+**🎙️ Audio Recording Specifications**
+To balance audio clarity with low-power transmission, the device uses the following encoding profile:
+
+| **Parameter** | **Specification** |
+| --- | --- |
+| **Interval** | 300 seconds (5 minutes) *— Subject to optimization* |
+| **Sample Rate** | 16 kHz |
+| **Channels** | Mono |
+| **Format** | AAC |
+| **Bitrate** | 32,000 bps (32 kbps) |
+
+![EM_flowchart_main.png](MCU%20docs/EM_flowchart_main.png)
+
+---
+
+## ✨ Key Features
+
+- **Low-Power Design:** Optimized hardware for all-day wearable use.
+- **Biometric Integration:** Syncs audio data with heart rate or other vitals for holistic life-tracking.
+- **Actionable Insights:** Converts hours of conversation into high-value summaries and tasks.
+
+## 📋 Tech Stack
+
+### **Hardware**
+
+**🧠 Processing & Connectivity**
+
+- **MCU:** ESP32-S3 (Xtensa® 32-bit LX7 dual-core processor).
+- **Memory:** 8MB PSRAM and 8MB Flash memory.
+- **Wireless:** Dual-mode support for **Wi-Fi** and **Bluetooth Low Energy (BLE)** for seamless data transmission to the Raspberry Pi server.
+
+**⚡ Power & Interface**
+
+- **Battery:** 400 mAh Lithium Polymer (LiPo) battery, optimized for all-day efficiency.
+- **User Input:** A tactile button array for manual wireless connectivity toggles and manual recording triggers.
+
+**🏥 Physiological Monitoring (Roadmap)**[!IMPORTANT]
+**Status: In Development (Target Release: Fall 2026)**
+We are currently integrating a multi-modal health sensor to provide continuous tracking of:
+
+- **Heart Rate & HRV** (Heart Rate Variability)
+- **Skin Conductance** (Electrodermal Activity)
+- **Body Temperature**
+
+![EM_HW.png](MCU%20docs/EM_HW.png)
+
+### Software
+
+The wearable software is built using the **Espressif IoT Development Framework (ESP-IDF)**, ensuring optimized performance for the ESP32-S3. The system leverages several specialized libraries to manage audio, storage, and networking:
+
+### 🎙️ Audio & Storage Management
+
+- **FatFS:** Manages file system operations for reading from and writing audio recordings to the microSD card.
+- **SNTP (Simple Network Time Protocol):** Synchronizes timestamps via the network to ensure accurate, time-stamped file naming for all recordings.
+- **ESP Audio Codec:** Handles the real-time conversion and encoding of **Pulse Density Modulation (PDM)** data from the digital microphone into **Advanced Audio Coding (AAC)** format.
+
+### 🌐 Wireless Networking
+
+- **lwIP (Lightweight IP):** Manages the TCP/IP stack for robust network connectivity.
+- **ESP HTTP Client:** Facilitates secure and efficient communication with the central Raspberry Pi server.
+- **Bluedroid:** Powers the Bluetooth peripheral stack, enabling the device to communicate with the mobile application for configuration.
+
+---
+
+### 🛠️ Development Environment
+
+- **Framework:** ESP-IDF (v5.x recommended)
+- **RTOS:** FreeRTOS (Integrated with ESP-IDF)
+- **Language:** C/C++
+
+![EM_SW stack.png](MCU%20docs/EM_SW_stack.png)
+
+---
+
+## 🏗️ Getting Started
+
+### Prerequisites
+
+- A configured Raspberry Pi server (see [Server Setup Guide](https://www.google.com/search?q=%23)).
+- Compatible wearable hardware.
+- ESP-IDF v5.x
+
+### Installation
+
+```jsx
+git clone https://github.com/osugiw/CP_MCU_Codes.git
+cd [your-repo-name]
 ```
 
-### Hardware Required
+### Configuration
 
-* A development board with ESP32/ESP32-C3/ESP32-H2/ESP32-C2/ESP32-S3 SoC (e.g., ESP32-DevKitC, ESP-WROVER-KIT, etc.)
-* A USB cable for Power supply and programming
+Some configuration needs to be changed before the software can run. Change the WiFi SSID and Password to your network, it can be changed in **main.h**
 
-See [Development Boards](https://www.espressif.com/en/products/devkits) for more information about it.
+![image.png](MCU%20docs/image.png)
 
-### Build and Flash
+### Compile and Flash
 
-Run `idf.py -p PORT flash monitor` to build, flash and monitor the project.
+Make sure to choose ESP32S3 as the target device and click build project.
 
-(To exit the serial monitor, type ``Ctrl-]``.)
+![image.png](MCU%20docs/image%201.png)
 
-See the [Getting Started Guide](https://idf.espressif.com/) for full steps to configure and use ESP-IDF to build projects.
+Upon successful built, plug your Hardware and click flash device.
 
-## Example Output
+### Monitor/Debug
 
-```
-I (0) cpu_start: Starting scheduler on APP CPU.
-I (512) BTDM_INIT: BT controller compile version [1342a48]
-I (522) system_api: Base MAC address is not set
-I (522) system_api: read default base MAC address from EFUSE
-I (522) phy_init: phy_version 4670,719f9f6,Feb 18 2021,17:07:07
-I (942) GATTS_TABLE_DEMO: create attribute table successfully, the number handle = 8
-
-I (942) GATTS_TABLE_DEMO: SERVICE_START_EVT, status 0, service_handle 40
-I (962) GATTS_TABLE_DEMO: advertising start successfully
-```
-
-## Troubleshooting
-
-For any technical queries, please open an [issue](https://github.com/espressif/esp-idf/issues) on GitHub. We will get back to you soon.
+Click monitor to see device output and see the debug messages.
