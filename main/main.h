@@ -46,8 +46,8 @@ typedef struct {
 #define SAMPLE_DEVICE_NAME         "WEARABLE_PHI"
 
 // WiFi Parameters
-#define WIFI_SSID                   "ASUS"
-#define WIFI_PASSWORD               "brkbrkbrkb09"
+#define WIFI_SSID                   "Rice Visitor"
+#define WIFI_PASSWORD               ""
 
 // SD Card Paremeters
 #define MAX_SD_READ_SIZE            512
@@ -97,7 +97,7 @@ typedef struct {
 #endif
 
 // HTTP Client
-#define HTTP_ROOT_URL           "https://inkjet-cgi-transcription-financial.trycloudflare.com/"
+#define HTTP_ROOT_URL           "https://declared-competitors-soil-highlighted.trycloudflare.com/"
 #define HTTP_UPLOAD_URL         "upload"
 
 // Debug TAGs

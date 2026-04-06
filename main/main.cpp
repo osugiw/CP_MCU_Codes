@@ -61,7 +61,7 @@ void upload_file_task(void *pvParameters)
                 {   
                     std::string url = HTTP_ROOT_URL;
                     url.append(HTTP_UPLOAD_URL);
-                    // uploadStatus = http_client.uploadAACFile(url.c_str(), listFile[0]);
+                    uploadStatus = http_client.uploadAACFile(url.c_str(), listFile[0]);
                     if(uploadStatus == ESP_OK || uploadStatus == ESP_ERR_NOT_SUPPORTED){
                         sd_card.remove_file(listFile[0].c_str());
                     }
