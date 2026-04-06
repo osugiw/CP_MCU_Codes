@@ -87,7 +87,7 @@ typedef struct {
 #define AAC_CODEC_BUFFER_SIZE               (I2S_CHANNEL_DMA_FRAME_NUM + 2)
 
 /*  Recording Config  */
-#define RECORD_DURATION         60          // In seconds  
+#define RECORD_DURATION         300          // In seconds  
 #define MIN_SPACE_LEFT          100         // In MB
 
 #ifdef GENERATE_DUMMY_5KB_FILE
@@ -97,8 +97,11 @@ typedef struct {
 #endif
 
 // HTTP Client
-#define HTTP_ROOT_URL           "https://declared-competitors-soil-highlighted.trycloudflare.com/"
+#define HTTP_ROOT_URL           "https://floppy-difference-rely-dean.trycloudflare.com/"
 #define HTTP_UPLOAD_URL         "upload"
+
+/* Device ID */
+#define DEVICE_ID                   "SALLY01"   // unique device ID 
 
 // Debug TAGs
 static const char *SD_TAG          = "SD_CARD";

@@ -173,7 +173,7 @@ esp_err_t HTTP_Class::send_post_request(const char* url, std::string fileName)
     return ESP_OK;
 }
 
-esp_err_t HTTP_Class::uploadAACFile(const char* url, std::string fileName)
+esp_err_t HTTP_Class::uploadAACFile(const char* url, std::string fileName, std::string deviceId)
 {
     esp_err_t err = ESP_OK;
 
@@ -246,13 +246,13 @@ esp_err_t HTTP_Class::uploadAACFile(const char* url, std::string fileName)
             "--" + std::string(boundary) + "\r\n"
             "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n"
             "Content-Type: application/octet-stream\r\n\r\n";
-
         std::string body_end = "\r\n--" + std::string(boundary) + "--\r\n";
         int total_length = body_start.length() + file_size + body_end.length();
         
         // Set multipart header
         std::string content_type = "multipart/form-data; boundary=" + std::string(boundary);
         esp_http_client_set_header(client, "Content-Type", content_type.c_str());
+        // esp_http_client_set_header(client, "Device-ID", deviceId.c_str());
         err = esp_http_client_open(client, total_length);
         esp_http_client_write(client, body_start.c_str(), body_start.length());
         if (err != ESP_OK) {

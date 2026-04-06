@@ -7,10 +7,10 @@ Team: Documentation
 <table border="0">
   <tr>
     <td width="50%" align="center">
-      <img src="MCU%20docs/sally_logo.svg" width="50%" alt="Sally Logo">
+      <img src="images/sally_logo.svg" width="50%" alt="Sally Logo">
     </td>
     <td width="50%" align="center">
-      <img src="MCU%20docs/RiceStackedHoriz_Blue.png" width="70%" alt="Rice Logo">
+      <img src="images/RiceStackedHoriz_Blue.png" width="70%" alt="Rice Logo">
     </td>
   </tr>
 </table>
@@ -44,7 +44,7 @@ To balance audio clarity with low-power transmission, the device uses the follow
 | **Format** | AAC |
 | **Bitrate** | 32,000 bps (32 kbps) |
 
-![EM_flowchart_main.png](MCU%20docs/EM_flowchart_main.png)
+![EM_flowchart_main.png](images/EM_flowchart_main.png)
 
 ---
 
@@ -74,7 +74,7 @@ We are currently integrating a multi-modal health sensor to provide continuous t
 - **Skin Conductance** (Electrodermal Activity)
 - **Body Temperature**
 
-![EM_HW.png](MCU%20docs/EM_HW.png)
+![EM_HW.png](images/EM_HW.png)
 
 ### Software
 The wearable software is built using the **Espressif IoT Development Framework (ESP-IDF)**, ensuring optimized performance for the ESP32-S3. The system leverages several specialized libraries to manage audio, storage, and networking:
@@ -96,7 +96,7 @@ The wearable software is built using the **Espressif IoT Development Framework (
 - **RTOS:** FreeRTOS (Integrated with ESP-IDF)
 - **Language:** C/C++
 
-![EM_SW stack.png](MCU%20docs/EM_SW_stack.png)
+![EM_SW stack.png](images/EM_SW_stack.png)
 
 ---
 
@@ -115,11 +115,11 @@ cd [your-repo-name]
 ### Configuration
 Some configuration needs to be changed before the software can run. Change the WiFi SSID and Password to your network, it can be changed in **main.h**
 
-![image.png](MCU%20docs/image.png)
+![image.png](images/image.png)
 
 ### Compile and Flash
 Make sure to choose ESP32S3 as the target device and click build project.
-![image.png](MCU%20docs/image%201.png)
+![image.png](images/image%201.png)
 Upon successful built, plug your Hardware and click flash device.
 
 ### Monitor/Debug

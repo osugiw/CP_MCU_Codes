@@ -51,9 +51,10 @@ class HTTP_Class {
         *   @brief  Upload AAC Audio to the Dropbox drive
         *   @param  url                 The URL to send the POST request to
         *   @param  fileName            SD Card filename
+        *   @param  deviceID            Unique identifier for the device (can be used for server-side organization)
         *   @return ESP_OK if successful, ESP_FAIL otherwise
         */
-       esp_err_t uploadAACFile(const char* url, std::string fileName);
+       esp_err_t uploadAACFile(const char* url, std::string fileName, std::string deviceId = DEVICE_ID);
 };
 
 
