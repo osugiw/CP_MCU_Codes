@@ -97,7 +97,7 @@ typedef struct {
 #endif
 
 // HTTP Client
-#define HTTP_ROOT_URL           "https://floppy-difference-rely-dean.trycloudflare.com/"
+#define HTTP_ROOT_URL           "https://ecommerce-solution-lucky-mit.trycloudflare.com/"
 #define HTTP_UPLOAD_URL         "upload"
 
 /* Device ID */
