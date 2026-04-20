@@ -61,10 +61,12 @@ void upload_file_task(void *pvParameters)
                 {   
                     std::string url = HTTP_ROOT_URL;
                     url.append(HTTP_UPLOAD_URL);
+#ifdef ENABLE_UPLOAD_TESTING
                     uploadStatus = http_client.uploadAACFile(url.c_str(), listFile[0], DEVICE_ID);
                     if(uploadStatus == ESP_OK || uploadStatus == ESP_ERR_NOT_SUPPORTED){
                         sd_card.remove_file(listFile[0].c_str());
                     }
+#endif
                 }        
                 // Trying to reconnect to the WiFi while still recording
                 else if(wifi.wifi_status() == WIFI_STATE_DISCONNECTED)

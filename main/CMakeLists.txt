@@ -7,6 +7,9 @@ idf_component_register(
                 esp_http_client
                 esp_driver_i2s
                 esp-tls
+    
+    PRIV_REQUIRES spiffs
+
     INCLUDE_DIRS 
                 "."
                 "./sd_card"
@@ -17,6 +20,7 @@ idf_component_register(
                 "./NTP"
                 "./buttons"
                 "./led"
+                "./spiffs"
     SRC_DIRS     
                 "."
                 "./sd_card"
@@ -27,6 +31,7 @@ idf_component_register(
                 "./NTP"
                 "./buttons"
                 "./led"
+                "./spiffs"
 )
 
 target_compile_options(

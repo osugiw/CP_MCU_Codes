@@ -37,6 +37,7 @@ typedef struct {
 
 // Testing Purposes
 #define ENABLE_WIFI_TESTING             
+#define ENABLE_UPLOAD_TESTING
 // #define ENABLE_BLE_TESTING         
 // #define GENERATE_DUMMY_5KB_FILE     
 
@@ -97,7 +98,7 @@ typedef struct {
 #endif
 
 // HTTP Client
-#define HTTP_ROOT_URL           "https://ecommerce-solution-lucky-mit.trycloudflare.com/"
+#define HTTP_ROOT_URL           "https://insights-text-concluded-kelly.trycloudflare.com/"
 #define HTTP_UPLOAD_URL         "upload"
 
 /* Device ID */
