@@ -47,7 +47,7 @@ typedef struct {
 #define SAMPLE_DEVICE_NAME         "WEARABLE_PHI"
 
 // WiFi Parameters
-#define WIFI_SSID                   "Rice Visitor"
+#define WIFI_SSID                   ""
 #define WIFI_PASSWORD               ""
 
 // SD Card Paremeters
@@ -98,7 +98,7 @@ typedef struct {
 #endif
 
 // HTTP Client
-#define HTTP_ROOT_URL           "https://insights-text-concluded-kelly.trycloudflare.com/"
+#define HTTP_ROOT_URL           ""
 #define HTTP_UPLOAD_URL         "upload"
 
 /* Device ID */

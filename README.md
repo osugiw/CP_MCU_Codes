@@ -46,14 +46,13 @@ To balance audio clarity with low-power transmission, the device uses the follow
 | **Format** | AAC |
 | **Bitrate** | 32,000 bps (32 kbps) |
 
-![EM_flowchart_main.png](EM_flowchart_main.png)
+<img src="images/EM_flowchart_main.png" width="50%" alt="Flowchart">
 
 ---
 
 ## ✨ Key Features
 
 - **Low-Power Design:** Optimized hardware for all-day wearable use.
-- **Biometric Integration:** Syncs audio data with heart rate or other vitals for holistic life-tracking.
 - **Actionable Insights:** Converts hours of conversation into high-value summaries and tasks.
 
 ## 📋 Tech Stack
@@ -71,15 +70,7 @@ To balance audio clarity with low-power transmission, the device uses the follow
 - **Battery:** 400 mAh Lithium Polymer (LiPo) battery, optimized for all-day efficiency.
 - **User Input:** A tactile button array for manual wireless connectivity toggles and manual recording triggers.
 
-**🏥 Physiological Monitoring (Roadmap)**[!IMPORTANT]
-**Status: In Development (Target Release: Fall 2026)**
-We are currently integrating a multi-modal health sensor to provide continuous tracking of:
-
-- **Heart Rate & HRV** (Heart Rate Variability)
-- **Skin Conductance** (Electrodermal Activity)
-- **Body Temperature**
-
-![EM_HW.png](EM_HW.png)
+<img src="images/EM_HW.png" width="50%" alt="Schematics">
 
 ### Software
 
@@ -105,7 +96,7 @@ The wearable software is built using the **Espressif IoT Development Framework (
 - **RTOS:** FreeRTOS (Integrated with ESP-IDF)
 - **Language:** C/C++
 
-![EM_SW stack.png](EM_SW_stack.png)
+<img src="images/EM_SW_stack.png" width="50%" alt="SW stack">
 
 ---
 
@@ -128,13 +119,13 @@ cd [your-repo-name]
 
 Some configuration needs to be changed before the software can run. Change the WiFi SSID and Password to your network, it can be changed in **main.h**
 
-![image.png](image.png)
+<img src="images/EM_WIFI.png" width="50%" alt="Flowchart">
 
 ### Compile and Flash
 
 Make sure to choose ESP32S3 as the target device and click build project.
 
-![image.png](image%201.png)
+<img src="images/EM_Compile.png" width="50%" alt="Flowchart">
 
 Upon successful built, plug your Hardware and click flash device.
 
