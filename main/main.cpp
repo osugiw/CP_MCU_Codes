@@ -20,6 +20,7 @@
 #include "mic_pdm.h"
 #include "NTP.h"
 #include "esp_random.h"
+#include "spiffs.h"
 
 /* Private Macros   */
 #define TASK_FIRST_PRIORITY    12
@@ -27,23 +28,156 @@
 
 /*  Private Variables   */
 #ifdef ENABLE_BLE_TESTING
-ble_conn_class ble_conn;                 // BLE Instance
+    ble_conn_class ble_conn;                 // BLE Instance
 #endif
 #ifdef ENABLE_WIFI_TESTING
-WIFI_Class wifi;            // WiFi Instance
-HTTP_Class http_client;     // HTTP Client Instance
+    WIFI_Class wifi;            // WiFi Instance
+    HTTP_Class http_client;     // HTTP Client Instance
 #endif
 static MIC_I2S mic;                        // Mic Instance
 static NTP ntp;                             // NTP Instance
 static esp_err_t uploadStatus = ESP_FAIL;
 SemaphoreHandle_t sem_task;         // Semaphore for task synchronization
 
+// Device Config
+SPIFFS spiffs;
+uint8_t file_config[255] = {};
+size_t config_size = sizeof(file_config);
+static dev_config_t default_config = {
+    .wifi_ssid = WIFI_SSID,
+    .wifi_pwd = WIFI_PASSWORD,
+    .device_id = DEVICE_ID,
+};
+dev_config_t current_config = {"", "", ""};
+
 // ------------------ Button States
 bt_state_t bt_state = {BT_RELEASED, BT_RELEASED, BT_RELEASED, 0};
 sys_enum_t sys_state = SYSTEM_OFF;
 
+/*  Private Function    */
+/**
+ * FREERTOS Task to upload recorded audio
+ */
+void upload_file_task(void *args);
+
+/**
+ * FREERTOS Task to record and save audio
+ */
+void record_and_save_task(void *args);
+
+/**
+ * Load Device config from the SPIFFS
+ */
+void fn_load_dev_config(void);
+
+/*  Main Function    */
+extern "C" void app_main(void)
+{
+    esp_err_t ret;
+
+    // Initialize the button and LED
+    init_button(PIN_ONOFF_BT);
+    led_init(PIN_LED);
+
+    // Initialize SD Card
+    sd_mounted = sd_card.initialize();
+
+    // Load device config from SPIFFS
+    fn_load_dev_config();
+
+    // Initialize the MIC I2S
+    mic.init_pdm();
+
+    /* Initialize NVS. */
+    ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK( ret );
+
 #ifdef ENABLE_WIFI_TESTING
-void upload_file_task(void *pvParameters)
+    wifi.init(current_config.wifi_ssid, current_config.wifi_pwd);
+    wifi.connect(current_config.wifi_ssid, current_config.wifi_pwd);
+
+    if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
+    {
+        ntp.initialize();
+        // ntp.getSyncStatus();
+    }
+#endif
+
+#ifdef ENABLE_BLE_TESTING      
+   // Initialize BLE and GATT server
+    ble_state = ble_conn.ble_init();
+    if(ble_state == BLE_STATE_ADVERTISING){
+        ESP_LOGI(GATTS_TABLE_TAG, "BLE initialized successfully");
+    }
+    else{
+        ESP_LOGE(GATTS_TABLE_TAG, "Failed to initialize BLE");
+    }
+    vTaskDelay(1000 / portTICK_PERIOD_MS);   // Delay to ensure BLE is properly initialized before starting the tasks
+#endif
+
+    // Create the semaphore
+    sem_task = xSemaphoreCreateBinary();
+    xSemaphoreGive(sem_task);
+
+    /*  Record and Save Task  */
+    xTaskCreatePinnedToCore(
+        record_and_save_task,                   // Task code
+        "Record Audio Task",                    // Task name
+        14 * 1024,                              // Stack size
+        NULL,                                   // Parameter to be passed
+        TASK_FIRST_PRIORITY,                    // Task Priority
+        NULL,                                   // Task Handle
+        1                                       // 0: WiFi/BLE, 1: Apps
+    );
+
+#ifdef ENABLE_WIFI_TESTING
+    if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
+    {
+         xTaskCreatePinnedToCore(
+            upload_file_task,                       // Task code
+            "HTTP Test Task",                       // Task name
+            8 * 1024,                               // Stack size
+            NULL,                                   // Parameter to be passed
+            TASK_SECOND_PRIORITY,                   // Task Priority
+            NULL,                                   // Task Handle
+            0                                       // 0: WiFi/BLE, 1: Apps
+        );
+    }
+#endif
+
+    ESP_LOGI(MAIN_TAG, "Initialization complete. Entering standby mode...");
+    while (true)
+    {
+        bt_enum_t pwr_bt_state =  button_task(&bt_state, PIN_ONOFF_BT);
+        if(pwr_bt_state == BT_PRESSED)
+        {
+            // Turn on when system is off
+            if(sys_state == SYSTEM_OFF)
+            {
+                led_set_state(PIN_LED, LED_ON);
+                sys_state = SYSTEM_ON;
+                ESP_LOGI(MAIN_TAG, "System turned ON");
+            }
+            // Turn off when system is on
+            else if(sys_state == SYSTEM_ON)
+            {
+                led_set_state(PIN_LED, LED_OFF);
+                sys_state = SYSTEM_OFF;
+                ESP_LOGI(MAIN_TAG, "System turned OFF");
+                mic.i2s_force_stop_recording();
+            }
+        }
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+    
+}
+
+#ifdef ENABLE_WIFI_TESTING
+void upload_file_task(void *args)
 {
     for(;;)
     {
@@ -126,104 +260,48 @@ void record_and_save_task(void *args)
     }
 }
 
-extern "C" void app_main(void)
+void fn_load_dev_config(void)
 {
-    esp_err_t ret;
+    if(spiffs.init() != ESP_OK)
+        ESP_LOGE(SPIFFS_TAG, "Failed to intizialed SPIFFS");   
 
-    // Initialize the button and LED
-    init_button(PIN_ONOFF_BT);
-    led_init(PIN_LED);
-
-    // Initialize SD Card
-    sd_mounted = sd_card.initialize();
-
-    // Initialize the MIC I2S
-    mic.init_pdm();
-
-    /* Initialize NVS. */
-    ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( ret );
-
-#ifdef ENABLE_WIFI_TESTING
-    wifi.init();
-    wifi.connect();
-
-    if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
-    {
-        ntp.initialize();
-        // ntp.getSyncStatus();
-    }
+#ifdef ENABLE_NEW_WIFI_CREDS
+    // std::string config_write = "wifi-ssid:ASUS/wifi-pwd:brkbrkbrkb09/device-id:" + default_config.device_id + "/";
+    std::string config_write = "wifi-ssid:" +  default_config.wifi_ssid + "/wifi-pwd:" + default_config.wifi_pwd + "/device-id:" + default_config.device_id + "/";
+    bool flagWrite = spiffs.write_spiffs(SPIFFS_CONFIG, config_write.c_str());
+    printf("Writing default config with status %d [0=Sucess]\n", flagWrite);
 #endif
 
-#ifdef ENABLE_BLE_TESTING      
-   // Initialize BLE and GATT server
-    ble_state = ble_conn.ble_init();
-    if(ble_state == BLE_STATE_ADVERTISING){
-        ESP_LOGI(GATTS_TABLE_TAG, "BLE initialized successfully");
-    }
-    else{
-        ESP_LOGE(GATTS_TABLE_TAG, "Failed to initialize BLE");
-    }
-    vTaskDelay(1000 / portTICK_PERIOD_MS);   // Delay to ensure BLE is properly initialized before starting the tasks
-#endif
-
-    // Create the semaphore
-    sem_task = xSemaphoreCreateBinary();
-    xSemaphoreGive(sem_task);
-
-    /*  Record and Save Task  */
-    xTaskCreatePinnedToCore(
-        record_and_save_task,                   // Task code
-        "Record Audio Task",                    // Task name
-        14 * 1024,                              // Stack size
-        NULL,                                   // Parameter to be passed
-        TASK_FIRST_PRIORITY,                    // Task Priority
-        NULL,                                   // Task Handle
-        1                                       // 0: WiFi/BLE, 1: Apps
-    );
-
-#ifdef ENABLE_WIFI_TESTING
-    if(wifi.wifi_status() == WIFI_STATE_CONNECTED)
+    memset(file_config, 0, config_size); // Ensure it's clean
+    bool config_file_exist = spiffs.read_spiffs(SPIFFS_CONFIG, file_config, 0, config_size);
+    if(config_file_exist != ESP_OK)
     {
-         xTaskCreatePinnedToCore(
-            upload_file_task,                       // Task code
-            "HTTP Test Task",                       // Task name
-            8 * 1024,                               // Stack size
-            NULL,                                   // Parameter to be passed
-            TASK_SECOND_PRIORITY,                   // Task Priority
-            NULL,                                   // Task Handle
-            0                                       // 0: WiFi/BLE, 1: Apps
-        );
+        std::string config_write = "wifi-ssid:" +  default_config.wifi_ssid + "/wifi-pwd:" + default_config.wifi_pwd + "/device-id:" + default_config.device_id + "/";
+        bool flagWrite = spiffs.write_spiffs(SPIFFS_CONFIG, config_write.c_str());
+        printf("Writing default config with status %d [0=Sucess]\n", flagWrite);
     }
-#endif
-
-    ESP_LOGI(MAIN_TAG, "Initialization complete. Entering standby mode...");
-    while (true)
+    else
     {
-        bt_enum_t pwr_bt_state =  button_task(&bt_state, PIN_ONOFF_BT);
-        if(pwr_bt_state == BT_PRESSED)
-        {
-            // Turn on when system is off
-            if(sys_state == SYSTEM_OFF)
-            {
-                led_set_state(PIN_LED, LED_ON);
-                sys_state = SYSTEM_ON;
-                ESP_LOGI(MAIN_TAG, "System turned ON");
-            }
-            // Turn off when system is on
-            else if(sys_state == SYSTEM_ON)
-            {
-                led_set_state(PIN_LED, LED_OFF);
-                sys_state = SYSTEM_OFF;
-                ESP_LOGI(MAIN_TAG, "System turned OFF");
-                mic.i2s_force_stop_recording();
-            }
-        }
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        // Extract data
+        std::string_view sv(reinterpret_cast<char*>(file_config));
+        auto extract = [&](std::string_view key) -> std::string_view {
+            size_t start = sv.find(key);
+            if (start == std::string_view::npos) return "";
+            
+            start += key.length();
+            size_t end = sv.find('/', start);
+            if (end == std::string_view::npos) return "";
+
+            return sv.substr(start, end - start);
+        };
+        current_config.wifi_ssid = extract("wifi-ssid:");
+        current_config.wifi_pwd  = extract("wifi-pwd:");
+        current_config.device_id = extract("device-id:");
+
+        // Verify the data is saved
+        printf("Saved Config -> SSID: %s, PWD: %s, ID: %s\n", 
+                current_config.wifi_ssid.c_str(), 
+                current_config.wifi_pwd.c_str(), 
+                current_config.device_id.c_str());
     }
-    
 }

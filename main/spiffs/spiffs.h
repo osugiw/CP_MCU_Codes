@@ -13,21 +13,28 @@ class SPIFFS {
     public:
         /**
          * Init SPIFFS
+         * @return Init status
          */
-        void init(void);
+        esp_err_t init(void);
 
         /**
          * Read data from SPIFFS file
          * @param path: Path to the file in SPIFFS
+         * @param  filePath    File filePath
+         * @param  dt          Data read from the file        
+         * @param  offset      Offset to start reading from
+         * @param  chunk_size  Size of data to read
+         * @return File return code
          */
-        void read_spiffs(std::string path);
+        esp_err_t read_spiffs(std::string path, uint8_t* dt, size_t offset, size_t chunk_size);
 
         /**
          * Write data to SPIFFS file
          * @param path: Path to the file in SPIFFS
          * @param data: Data to be written to the file
+         * @return File status
          */
-        void write_spiffs(std::string path, const char* data);
+        esp_err_t write_spiffs(std::string path, const char* data);
 
         /**
          * Unmount SPIFFS

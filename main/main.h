@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <iostream>
+#include <string_view>
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
@@ -32,10 +33,18 @@ typedef struct {
     uint8_t     recording_time;   // In minutes
 } device_settings_t;
 
+typedef struct {
+    std::string wifi_ssid;
+    std::string wifi_pwd;
+    std::string device_id;
+} dev_config_t;
+
+
 /****************** Public Define ******************/
 #define ENABLE_LOGGING              1
 
 // Testing Purposes
+// #define ENABLE_NEW_WIFI_CREDS
 #define ENABLE_WIFI_TESTING             
 #define ENABLE_UPLOAD_TESTING
 // #define ENABLE_BLE_TESTING         
@@ -53,6 +62,9 @@ typedef struct {
 // SD Card Paremeters
 #define MAX_SD_READ_SIZE            512
 #define SD_TEST_PATH                "/sdcard/test.txt"
+
+// SPIFFS Config
+#define SPIFFS_CONFIG               "config.txt" 
 
 /* IOs */
 //  SD Pin assignments
@@ -106,6 +118,7 @@ typedef struct {
 
 // Debug TAGs
 static const char *SD_TAG          = "SD_CARD";
+static const char *SPIFFS_TAG      = "SPIFFS";
 static const char *GATTS_TABLE_TAG = "BLE";
 static const char *WIFI_TAG        = "WIFI_CONN";
 static const char *RECORD_TAG      = "RECORDING";

@@ -55,17 +55,19 @@ class WIFI_Class{
 
         /**
         *   @brief  Initialize WiFi Interface
-        *   @param  None
+        *   @param  _ssid   WiFi SSID
+        *   @param  _ssid   WiFi Password
         *   @return None
         */
-        void init(void);
+        void init(std::string _ssid, std::string _pwd);
 
         /**
         *   @brief  Connect to WiFi
-        *   @param  None
+        *   @param  _ssid   WiFi SSID
+        *   @param  _ssid   WiFi Password
         *   @return None
         */
-        void connect(void);
+        void connect(std::string _ssid, std::string _pwd);
 
         /**
         *   @brief  Disconnect from WiFi

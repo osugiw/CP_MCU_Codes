@@ -3,9 +3,7 @@
 #include "esp_spiffs.h"
 #include "spiffs.h"
 
-const static char* SPIFFS_TAG = "SPIFFS";
-
-void SPIFFS::init(void) {
+esp_err_t SPIFFS::init(void) {
     esp_vfs_spiffs_conf_t conf = {
       .base_path = "/spiffs",
       .partition_label = NULL,
@@ -47,22 +45,26 @@ void SPIFFS::init(void) {
             ESP_LOGI(SPIFFS_TAG, "SPIFFS_check() successful");
         }
     }
+    return ESP_OK;
 }
 
-void SPIFFS::read_spiffs(std::string path) {
+esp_err_t SPIFFS::read_spiffs(std::string path, uint8_t* dt, size_t offset, size_t chunk_size) {
     std::string full_path = "/spiffs/" + path;
-    FILE* f = fopen(full_path.c_str(), "r");
+    FILE* f = fopen(full_path.c_str(), "rb");
     if (f == NULL) {
         ESP_LOGE(SPIFFS_TAG, "Failed to open file for reading");
-        return;
+        return ESP_ERR_NOT_FOUND;
     }
-    char line[64];
-    fgets(line, sizeof(line), f);
+    // Move the file pointer to the start of the next chunk
+    fseek(f, offset, SEEK_SET);
+
+    // fread returns the number of items successfully read
+    size_t bytes_read = fread(dt, 1, chunk_size, f);
     fclose(f);
-    ESP_LOGI(SPIFFS_TAG, "Read from file: '%s'", line);
+    return ESP_OK;
 }
 
-void SPIFFS::write_spiffs(std::string path, const char* data) {
+esp_err_t SPIFFS::write_spiffs(std::string path, const char* data) {
     std::string full_path = "/spiffs/" + path;
     FILE* f = fopen(full_path.c_str(), "w");
     if (f == NULL) {
@@ -72,6 +74,7 @@ void SPIFFS::write_spiffs(std::string path, const char* data) {
     fprintf(f, "%s", data);
     fclose(f);
     ESP_LOGI(SPIFFS_TAG, "File written");
+    return ESP_OK;
 }
 
 void SPIFFS::unmount_spiffs(void) {

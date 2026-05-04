@@ -57,7 +57,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
 WIFI_Class::WIFI_Class(){};
 WIFI_Class::~WIFI_Class(){};
 
-void WIFI_Class::init(void)
+void WIFI_Class::init(std::string _ssid, std::string _pwd)
 {
     esp_err_t ret;
     s_wifi_event_group = xEventGroupCreate();
@@ -85,12 +85,16 @@ void WIFI_Class::init(void)
         return;
     }
 
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = WIFI_SSID,
-            .password = WIFI_PASSWORD,
-        }
-    };
+    // wifi_config_t wifi_config = {
+    //     .sta = {
+    //         .ssid = WIFI_SSID,
+    //         .password = WIFI_PASSWORD,
+    //     }
+    // };
+    wifi_config_t wifi_config = {};
+    memcpy(wifi_config.sta.ssid, _ssid.c_str(), _ssid.length());
+    memcpy(wifi_config.sta.password, _pwd.c_str(), _pwd.length());
+
     ret = esp_wifi_set_mode(WIFI_MODE_STA);
     if (ret != ESP_OK) {
         wifi_state = ERR_WIFI_FAIL_SET_MODE;
@@ -105,7 +109,7 @@ void WIFI_Class::init(void)
     }
 }
 
-void WIFI_Class::connect(void)
+void WIFI_Class::connect(std::string _ssid, std::string _pwd)
 {
     esp_err_t ret;
     ret = esp_wifi_start();
@@ -132,7 +136,7 @@ void WIFI_Class::connect(void)
     // xEventGroupWaitBits() returns the bits before the call returned
     if (bits & WIFI_CONNECTED_BIT) {
         wifi_state = WIFI_STATE_CONNECTED;
-        ESP_LOGI(WIFI_TAG, "Connected to ap SSID:%s password:%s",WIFI_SSID, WIFI_PASSWORD);
+        ESP_LOGI(WIFI_TAG, "Connected to ap SSID:%s password:%s", _ssid.c_str(), _pwd.c_str());
     } 
     else if (bits & WIFI_FAIL_BIT) {
         wifi_state = WIFI_STATE_DISCONNECTED;
