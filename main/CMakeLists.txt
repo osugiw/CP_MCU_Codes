@@ -8,7 +8,8 @@ idf_component_register(
                 esp_driver_i2s
                 esp-tls
     
-    PRIV_REQUIRES spiffs
+    PRIV_REQUIRES   spiffs
+                    esp_driver_rmt
 
     INCLUDE_DIRS 
                 "."

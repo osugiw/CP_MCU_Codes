@@ -55,29 +55,23 @@ bt_state_t bt_state = {BT_RELEASED, BT_RELEASED, BT_RELEASED, 0};
 sys_enum_t sys_state = SYSTEM_OFF;
 
 /*  Private Function    */
-/**
- * FREERTOS Task to upload recorded audio
- */
-void upload_file_task(void *args);
+void upload_file_task(void *args);      // FREERTOS Task to upload recorded audio
+void record_and_save_task(void *args);  // FREERTOS Task to record and save audio
+void fn_load_dev_config(void);          // Load Device config from the SPIFFS
 
 /**
- * FREERTOS Task to record and save audio
- */
-void record_and_save_task(void *args);
-
-/**
- * Load Device config from the SPIFFS
- */
-void fn_load_dev_config(void);
-
-/*  Main Function    */
+ * Main Function    
+ * 
+* */
 extern "C" void app_main(void)
 {
     esp_err_t ret;
 
     // Initialize the button and LED
     init_button(PIN_ONOFF_BT);
-    led_init(PIN_LED);
+    ret = led.rmt_new_led_strip_encoder();
+    if (ret != ESP_OK)
+        printf("Error LED initialization");
 
     // Initialize SD Card
     sd_mounted = sd_card.initialize();
@@ -150,6 +144,7 @@ extern "C" void app_main(void)
 #endif
 
     ESP_LOGI(MAIN_TAG, "Initialization complete. Entering standby mode...");
+    led.rmt_set_color(GREEN, PURE, LOW_BRIGHTNESS, false); // Green color
     while (true)
     {
         bt_enum_t pwr_bt_state =  button_task(&bt_state, PIN_ONOFF_BT);
@@ -158,14 +153,14 @@ extern "C" void app_main(void)
             // Turn on when system is off
             if(sys_state == SYSTEM_OFF)
             {
-                led_set_state(PIN_LED, LED_ON);
+                led.rmt_set_color(WHITE, UNSATURATED, MAX_BRIGHTNESS, false); // White color
                 sys_state = SYSTEM_ON;
                 ESP_LOGI(MAIN_TAG, "System turned ON");
             }
             // Turn off when system is on
             else if(sys_state == SYSTEM_ON)
             {
-                led_set_state(PIN_LED, LED_OFF);
+                led.rmt_set_color(GREEN, PURE, LOW_BRIGHTNESS, false); // Green color
                 sys_state = SYSTEM_OFF;
                 ESP_LOGI(MAIN_TAG, "System turned OFF");
                 mic.i2s_force_stop_recording();
@@ -235,6 +230,7 @@ void record_and_save_task(void *args)
             {
                 if(sd_mounted == ESP_OK)
                 {
+                    led.rmt_set_color(WHITE, UNSATURATED, MAX_BRIGHTNESS, false); // White color
                     fileName.clear();
                     currentDateTime = ntp.currentDateTime();
 
@@ -263,7 +259,7 @@ void record_and_save_task(void *args)
 void fn_load_dev_config(void)
 {
     if(spiffs.init() != ESP_OK)
-        ESP_LOGE(SPIFFS_TAG, "Failed to intizialed SPIFFS");   
+        ESP_LOGE(SPIFFS_TAG, "Failed to initialized SPIFFS");   
 
 #ifdef ENABLE_NEW_WIFI_CREDS
     // std::string config_write = "wifi-ssid:ASUS/wifi-pwd:brkbrkbrkb09/device-id:" + default_config.device_id + "/";

@@ -13,6 +13,7 @@
 #include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "esp_log.h"
+#include "esp_check.h"
 
 // Libraries
 #include "sd_card.h"
@@ -56,7 +57,7 @@ typedef struct {
 #define SAMPLE_DEVICE_NAME         "WEARABLE_PHI"
 
 // WiFi Parameters
-#define WIFI_SSID                   ""
+#define WIFI_SSID                   "Rice Visitor"
 #define WIFI_PASSWORD               ""
 
 // SD Card Paremeters
@@ -79,7 +80,7 @@ typedef struct {
 
 // Button & LED Parameters
 #define PIN_ONOFF_BT                GPIO_NUM_6     // Button - D5
-#define PIN_LED                     GPIO_NUM_5     // LED - D4
+#define RMT_LED_STRIP_GPIO_NUM      GPIO_NUM_1     // LED - D0
 #define DEBOUNCE_DELAY              20             // Debounce delay in milliseconds
 
 /**
@@ -110,7 +111,7 @@ typedef struct {
 #endif
 
 // HTTP Client
-#define HTTP_ROOT_URL           ""
+#define HTTP_ROOT_URL           "https://maps-completed-showcase-december.trycloudflare.com/"
 #define HTTP_UPLOAD_URL         "upload"
 
 /* Device ID */
